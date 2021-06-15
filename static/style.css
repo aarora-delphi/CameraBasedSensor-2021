@@ -1,0 +1,13 @@
+svg {
+    border: 1px solid;
+}
+path{
+    fill: lightsalmon;
+    stroke: salmon;    
+    stroke-width: 5px;
+}
+button{
+    position: absolute;
+    top: 50%;
+    left: 50%;
+}
