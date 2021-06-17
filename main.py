@@ -318,8 +318,8 @@ def __parseArguments():
         global TRACK
         
         parser = argparse.ArgumentParser("Run Detection Flask App")
-        parser.add_argument("--model", default="cpu-tiny-yolov3", help="Model to load. Choose between cpu-yolov3, cpu-tiny-yolov3, tpu-tiny-yolov3, tpu-mobilenetv2")
-        parser.add_argument("--input", default="camera", help="Type webcam for webcam, camera for default IP cameras, or video path for video input")
+        parser.add_argument("--model", default="tpu-mobilenetv2", help="Model to load. Choose between cpu-yolov3, cpu-tiny-yolov3, tpu-tiny-yolov3, tpu-mobilenetv2")
+        parser.add_argument("--input", default="video", help="Type webcam for webcam, camera for default IP cameras, or video path for video input")
         parser.add_argument("--track", default="false", help="For enabling the track system. Choose between true or false")
         args = parser.parse_args()
         
