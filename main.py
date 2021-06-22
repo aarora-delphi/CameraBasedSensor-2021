@@ -163,6 +163,7 @@ def __perform_detection(frame):
         global total_cars_count
         global detection_algo
         global DEBUG_FRAME
+        global TRACK
 
         with data_lock:
                 detection_algo.set_frame_and_roi(frame, camera_dictionary[current_camera]) 
@@ -170,7 +171,9 @@ def __perform_detection(frame):
                 DEBUG_FRAME = detection_debug_frame
                 json_dict = __log_car_detection(numCars)
                 #send_string = __create_track_string(json_dict)
-                __send_json_message(json_dict)
+
+                if TRACK:                
+                        __send_json_message(json_dict)
         
                 if numCars > 0:
                         total_cars_count += numCars
