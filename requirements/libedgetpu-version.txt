@@ -1,0 +1,1 @@
+ii  libedgetpu1-std:amd64                      14.0                                             amd64        Support library for Edge TPU
