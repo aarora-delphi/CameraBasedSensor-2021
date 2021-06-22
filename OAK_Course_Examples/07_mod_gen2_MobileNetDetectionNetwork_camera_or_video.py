@@ -9,7 +9,7 @@ import argparse
 from time import monotonic
 
 nnPath    = str((Path(__file__).parent / Path('./models/OpenVINO_2021_2/mobilenet-ssd_openvino_2021.2_6shave.blob')).resolve().absolute())
-videoPath = str((Path(__file__).parent / Path('./video123.mp4')).resolve().absolute())
+videoPath = str((Path(__file__).parent / Path('./videos/video123.mp4')).resolve().absolute())
 
 # MobilenetSSD label texts
 labelMap = ["background", "aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow",

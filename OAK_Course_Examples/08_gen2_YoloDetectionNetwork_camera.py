@@ -38,7 +38,7 @@ model1 = './models/OpenVINO_2021_2/tiny-yolo-v3_openvino_2021.2_6shave.blob'
 model2 = './models/OpenVINO_2021_2/tiny-yolo-v4_openvino_2021.2_6shave.blob'
 model3 = './models/OpenVINO_2020_1/yolo-v3.blob.sh6cmx6NCE1'
 
-yolo_v3_path = str((Path(__file__).parent / Path(model3)).resolve().absolute())
+yolo_v3_path = str((Path(__file__).parent / Path(model2)).resolve().absolute())
 
 if len(sys.argv) > 1:
     yolo_v3_path = sys.argv[1]
