@@ -8,6 +8,9 @@ import time
 import argparse
 from time import monotonic
 
+import shapely
+from shapely.geometry import LineString, Point
+
 nnPath    = str((Path(__file__).parent / Path('./models/OpenVINO_2021_2/mobilenet-ssd_openvino_2021.2_6shave.blob')).resolve().absolute())
 videoPath = str((Path(__file__).parent / Path('./videos/video123.mp4')).resolve().absolute())
 
@@ -31,7 +34,7 @@ pipeline = dai.Pipeline()
 nn = pipeline.createMobileNetDetectionNetwork()
 nn.setBlobPath(nnPath)
 
-nn.setConfidenceThreshold(0.5)
+nn.setConfidenceThreshold(0.7)
 nn.setNumInferenceThreads(2)
 nn.input.setBlocking(False)
 
@@ -80,6 +83,7 @@ with dai.Device(pipeline) as device:
 
     if video:
         cap = cv2.VideoCapture(videoPath)
+    
     def should_run():
         return cap.isOpened() if video else True
 
@@ -104,14 +108,50 @@ with dai.Device(pipeline) as device:
 
     def to_planar(arr: np.ndarray, shape: tuple) -> np.ndarray:
             return cv2.resize(arr, shape).transpose(2, 0, 1).flatten()
+            
+    def is_intersection(roi_line, bbox):
+        roi_line_shapely = LineString(roi_line)
+        
+        # roi intersects bbox
+        top_line = LineString([(bbox[0],bbox[1]), (bbox[2], bbox[1])])
+        bot_line = LineString([(bbox[2],bbox[3]), (bbox[0], bbox[3])])
+        ###lft_line = LineString([(bbox[0],bbox[3]), (bbox[0], bbox[1])])
+        ###rgt_line = LineString([(bbox[2],bbox[1]), (bbox[2], bbox[3])])
 
+        top_pt = str(roi_line_shapely.intersection(top_line)) != "LINESTRING EMPTY"
+        bot_pt = str(roi_line_shapely.intersection(bot_line)) != "LINESTRING EMPTY"
+        ###lft_pt = str(roi_line_shapely.intersection(lft_line)) != "LINESTRING EMPTY"
+        ###rgt_pt = str(roi_line_shapely.intersection(rgt_line)) != "LINESTRING EMPTY"
+        
+        # roi within bbox
+        int_pt1 = (bbox[0] <= roi_line[0][0] <= bbox[2]) and (bbox[1] <= roi_line[0][1] <= bbox[3])
+        int_pt2 = (bbox[0] <= roi_line[1][0] <= bbox[2]) and (bbox[1] <= roi_line[1][1] <= bbox[3])
+        
+        return top_pt or bot_pt or (int_pt1 and int_pt2) ### or lft_pt or rgt_pt
+    
     def displayFrame(name, frame):
+        roi_line = [(int(frame.shape[1]/2), 0), (int(frame.shape[1]/2), frame.shape[0])]
+        cv2.line(frame, roi_line[0], roi_line[1], (255,0,0), 2)
+        cv2.putText(frame, "NN fps: {:.2f}".format(counter / (time.monotonic() - startTime)),
+                                (2, 20), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color=(255, 255, 0))
+        
         for detection in detections:
-            bbox = frameNorm(frame, (detection.xmin, detection.ymin, detection.xmax, detection.ymax))
-            cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (255, 0, 0), 2)
-            cv2.putText(frame, labelMap[detection.label], (bbox[0] + 10, bbox[1] + 20), cv2.FONT_HERSHEY_TRIPLEX, 0.5, 255)
-            cv2.putText(frame, f"{int(detection.confidence * 100)}%", (bbox[0] + 10, bbox[1] + 40), cv2.FONT_HERSHEY_TRIPLEX, 0.5, 255)
+            bbox_color = (0,0,255)
+            
+            if labelMap[detection.label] in ["car", "motorbike"]:
+                bbox = frameNorm(frame, (detection.xmin, detection.ymin, detection.xmax, detection.ymax))
+
+                in_roi = is_intersection(roi_line, bbox)
+                
+                if in_roi:
+                    bbox_color = (0,255,0)
+                
+                cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), bbox_color, 2)
+                cv2.putText(frame, labelMap[detection.label], (bbox[0] + 10, bbox[1] + 20), cv2.FONT_HERSHEY_TRIPLEX, 0.5, bbox_color)
+                cv2.putText(frame, f"{int(detection.confidence * 100)}%", (bbox[0] + 10, bbox[1] + 40), cv2.FONT_HERSHEY_TRIPLEX, 0.5, bbox_color)
+                print(f"{(bbox[0], bbox[1]), (bbox[2], bbox[3])} {labelMap[detection.label]}")
         cv2.imshow(name, frame)
+        
 
     while should_run():
         # Get image frames from camera or video file
@@ -120,10 +160,6 @@ with dai.Device(pipeline) as device:
             break
 
         if video:
-            ###
-            cv2.putText(frame, "NN fps: {:.2f}".format(counter / (time.monotonic() - startTime)),
-                                (20, 40), cv2.FONT_HERSHEY_TRIPLEX, 0.7, color=(0, 255, 0))
-            ###
             
             # Prepare image frame from video for sending to device
             img = dai.ImgFrame()
@@ -139,8 +175,6 @@ with dai.Device(pipeline) as device:
 
             if in_Frame is not None:
                 frame = in_Frame.getCvFrame()
-                cv2.putText(frame, "NN fps: {:.2f}".format(counter / (time.monotonic() - startTime)),
-                                (2, frame.shape[0] - 4), cv2.FONT_HERSHEY_TRIPLEX, 0.4, color=(255, 255, 255))
 
         inDet = qDet.tryGet()
         if inDet is not None:
