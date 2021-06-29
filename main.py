@@ -22,6 +22,7 @@ from os.path import isfile, join
 from camera import Camera
 from video import Video
 from utils import *
+from oak import Oak
 
 #Socket Vars
 HOST = "0.0.0.0"
@@ -321,8 +322,8 @@ def __parseArguments():
         global TRACK
         
         parser = argparse.ArgumentParser("Run Detection Flask App")
-        parser.add_argument("--model", default="tpu-mobilenetv2", help="Model to load. Choose between cpu-yolov3, cpu-tiny-yolov3, tpu-tiny-yolov3, tpu-mobilenetv2")
-        parser.add_argument("--input", default="video", help="Type webcam for webcam, camera for default IP cameras, or video path for video input")
+        parser.add_argument("--model", default="cpu-tiny-yolov3", help="Model to load. Choose between cpu-yolov3, cpu-tiny-yolov3, tpu-tiny-yolov3, tpu-mobilenetv2")
+        parser.add_argument("--input", default="video", help="Type webcam for webcam, camera for default IP cameras, oak for oak-1 camera, or video path for video input")
         parser.add_argument("--track", default="false", help="For enabling the track system. Choose between true or false")
         args = parser.parse_args()
         
@@ -342,14 +343,19 @@ def __parseArguments():
         if args.input == "webcam":
                 first_camera = 0 
                 camera_dictionary[first_camera] = Camera(first_camera)
-        elif args.input =="camera":
+        
+        elif args.input == "camera":
                 first_camera = 'rtsp://admin:12345@172.16.15.12'
                 camera_dictionary[first_camera] = Camera(first_camera)
 
                 second_camera = 'rtsp://admin:!hylanD3550@172.16.15.11:554/1/h264major'
                 camera_dictionary[second_camera] = Camera(second_camera)
         
-        elif args.input =="video":
+        elif args.input == "oak":
+                first_camera = 'OAK1'
+                camera_dictionary[first_camera] = Oak(first_camera)
+        
+        elif args.input == "video":
                 video_folder = "./inputVideos"
                 only_vfiles = [join(video_folder, f) for f in listdir(video_folder) if isfile(join(video_folder, f))]
                                 
@@ -359,31 +365,6 @@ def __parseArguments():
                 
                 first_camera = only_vfiles[0]
 
-                """
-                first_camera = "./inputVideos/video1.mp4"
-                camera_dictionary[first_camera] = Video(first_camera)
-                
-                second_camera = "./inputVideos/video2.mp4" 
-                camera_dictionary[second_camera] = Video(second_camera) 
-                
-                third_camera = "./inputVideos/video3.mp4"
-                camera_dictionary[third_camera] = Video(third_camera)   
-        
-                fourth_camera = "./inputVideos/video3-creeper.mp4"
-                camera_dictionary[fourth_camera] = Video(fourth_camera) 
-        
-                fifth_camera = "./inputVideos/video123.mp4"
-                camera_dictionary[fifth_camera] = Video(fifth_camera)
-
-                sixth_camera = "./inputVideos/Drive Thru Test_360 View.mp4"
-                camera_dictionary[sixth_camera] = Video(sixth_camera)
-
-                seventh_camera = "./inputVideos/Drive Thru Test_DT Window.mp4"
-                camera_dictionary[seventh_camera] = Video(seventh_camera)
-
-                eighth_camera = "./inputVideos/Drive Thru Test_Parking.mp4"
-                camera_dictionary[eighth_camera] = Video(eighth_camera)
-                """
         else:
                 first_camera = args.webcam
                 camera_dictionary[first_camera] = Video(first_camera)
