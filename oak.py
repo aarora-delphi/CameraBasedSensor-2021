@@ -44,7 +44,15 @@ class Oak():
         inRgb = self.qRgb.tryGet()
     
         if inRgb is not None:
-            return inRgb.getCvFrame()
+            frame = inRgb.getCvFrame()
+            # upscale image from (300,300) to (450,450)
+            frame = cv2.resize(frame, (450,450), interpolation = cv2.INTER_AREA)
+            
+            # add left and right border to image of 175 pixels for total size (450, 800)
+            frame = cv2.copyMakeBorder(src = frame, top = 0, bottom = 0, 
+                                                    left = 175, right = 175,
+                                                    borderType = cv2.BORDER_CONSTANT, value = (0,0,0))
+            return frame
          
         return self.frame
     
@@ -163,9 +171,10 @@ class Oak():
             time.sleep(0.01)
             
         self.dimensions = frame.shape
-        print(f"[INFO] OAK Dimensions: {self.dimensions}")
-        self.prepare_ratio = [800/self.dimensions[0],1]
-        self.frontend_ratio = [450/(self.dimensions[0]*self.prepare_ratio[0]),800/(self.dimensions[1]*self.prepare_ratio[1])]
+        fe_height, fe_width, _ = (450, 800, 3)
+        cam_height, cam_width, _ = self.dimensions
+        
+        self.frontend_ratio = [cam_width/fe_width, cam_height/fe_height]
 
 class OakIterator:
     """

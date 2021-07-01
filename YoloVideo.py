@@ -37,15 +37,13 @@ class YoloVideo:
 			resize the ROI to match the frame
 		"""
 		self.frame = frame
-
-		# Ratios needed to resize the ROI coordinates to match the original frame
-		x_ratio = camera.frontend_ratio[0]* camera.prepare_ratio[0]
-		y_ratio = camera.frontend_ratio[1]* camera.prepare_ratio[1]
-
 		self.ROI = []
-
-		for coord in camera.ROI:
-			self.ROI.append([coord[0]/x_ratio,coord[1]/y_ratio])
+		
+		# Ratios needed to resize the ROI coordinates to match the original frame
+		cam_ratio_width, cam_ratio_height = camera.frontend_ratio
+		
+		for roi_width, roi_height in camera.ROI:			
+			self.ROI.append([int(roi_width * cam_ratio_width), int(roi_height * cam_ratio_height)])
 
 	def get_yolo_labels(self):
 		"""
@@ -197,9 +195,10 @@ class YoloVideo:
 	
 	def draw_debug_setup(self): #draw ROI and setup text
 		self.DEBUG_IMAGE = self.frame
-			
+		
 		cv2.putText(self.DEBUG_IMAGE, text=f"DETECTION MODE", 
-					org=(int(self.DEBUG_IMAGE.shape[1]*0.75), 40), fontFace=cv2.FONT_HERSHEY_SIMPLEX, 
+					org=(int(self.DEBUG_IMAGE.shape[1]*0.05), int(self.DEBUG_IMAGE.shape[0]*0.1)), 
+					fontFace=cv2.FONT_HERSHEY_SIMPLEX, 
 					fontScale=1, color=(150,255,255), thickness=2, lineType=cv2.LINE_AA)	
 			
 		cv2.polylines(self.DEBUG_IMAGE, [np.asarray(self.ROI, np.int32).reshape((-1,1,2))], True, (150,255,255), 3)
