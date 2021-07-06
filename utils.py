@@ -11,11 +11,11 @@ def add_frame_overlay(frame, camera_name="NOT_SPECIFIED"):
 	"""
 	timestamp = datetime.now()
 	cv2.putText(frame, timestamp.strftime(
-		"%A %d %B %Y %I:%M:%S%p"), (10, frame.shape[0] - 10),
-				cv2.FONT_HERSHEY_SIMPLEX, 0.50, (255, 255, 255), 2) # add date and time
+		"%d %B %I:%M:%S%p"), (10, frame.shape[0] - 10),
+				cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2) # add date and time
 
 	cv2.putText(frame, "CAMERA: {}".format(camera_name), (10, frame.shape[0] - 40),
-				cv2.FONT_HERSHEY_SIMPLEX, 0.50, (255, 255, 255), 2) # add camera name
+				cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2) # add camera name
 
 	return frame
 

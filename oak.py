@@ -12,7 +12,7 @@ class Oak():
 
     def __init__(self, name = "OAK1"):
         self.name = name
-        self.ROI = None
+        self.ROI = [] # [[421, 197], [632, 73], [482, 331], [134, 332], [433, 65]] # sample ROI
         self.car_count = 0
         
         model_location = './OAK_Course_Examples/models/OpenVINO_2021_2/mobilenet-ssd_openvino_2021.2_6shave.blob'
@@ -28,7 +28,7 @@ class Oak():
         self.counter = 0
         self.detections = []
         
-        self.frame = None
+        self.frame = np.zeros([300,300,3],dtype=np.uint8)
         self.debugFrame = None
 
         self.pipeline = self.define_pipeline()
@@ -44,17 +44,25 @@ class Oak():
         inRgb = self.qRgb.tryGet()
     
         if inRgb is not None:
-            frame = inRgb.getCvFrame()
-            # upscale image from (300,300) to (450,450)
-            frame = cv2.resize(frame, (450,450), interpolation = cv2.INTER_AREA)
-            
-            # add left and right border to image of 175 pixels for total size (450, 800)
-            frame = cv2.copyMakeBorder(src = frame, top = 0, bottom = 0, 
-                                                    left = 175, right = 175,
-                                                    borderType = cv2.BORDER_CONSTANT, value = (0,0,0))
+            self.frame = inRgb.getCvFrame()
+            frame = self.resize_frame_with_border(self.frame)
             return frame
          
-        return self.frame
+        return self.resize_frame_with_border(self.frame)
+        
+    def resize_frame_with_border(self, frame):
+        """
+        Expecting 300x300 frame from oak, return size (450, 800)
+        """
+        # upscale image from (300,300) to (450,450)
+        frame = cv2.resize(frame, (450,450), interpolation = cv2.INTER_AREA)
+            
+        # add left and right border to image of 175 pixels for total size (450, 800)
+        frame = cv2.copyMakeBorder(src = frame, top = 0, bottom = 0, 
+                                                left = 175, right = 175,
+                                                borderType = cv2.BORDER_CONSTANT, value = (0,0,0))
+        return frame
+        
     
     def get_debug_frame(self):
         return self.debugFrame
@@ -104,7 +112,7 @@ class Oak():
             
         return (qRgb, qDet)
             
-    def inference(self):
+    def inference(self, show_display = False):
         inRgb = self.qRgb.tryGet()
         inDet = self.qDet.tryGet()
 
@@ -117,32 +125,91 @@ class Oak():
 
         # if the frame is available, render detection data on frame and display.
         if self.frame is not None:
-            self.displayFrame("rgb", self.frame)
-        
-        return (self.frame, self.debugFrame)
+            frame = self.frame.copy()
+            self.displayFrame("rgb", frame, show_display)
 
     # nn data (bounding box locations) are in <0..1> range - they need to be normalized with frame width/height
     def frameNorm(self, frame, bbox):
         normVals = np.full(len(bbox), frame.shape[0])
         normVals[::2] = frame.shape[1]
         return (np.clip(np.array(bbox), 0, 1) * normVals).astype(int)
+        
+    def bbox_in_roi(self, bbox):
+        """
+        Transform BBOX to match ROI frame size and check if BBOX in ROI
+        """
+    
+        # transform bbox to fit from (300x300) to (450, 800) frame size
+        mod_bbox = np.array(bbox) * 1.5
+        mod_bbox = [int(pt) for pt in mod_bbox]
+        mod_bbox[0] = mod_bbox[0] + 175
+        mod_bbox[2] = mod_bbox[2] + 175
+        pt_mod_bbox = [ [mod_bbox[0], mod_bbox[1]], 
+                        [mod_bbox[2], mod_bbox[1]],
+                        [mod_bbox[2], mod_bbox[3]],
+                        [mod_bbox[0], mod_bbox[3]] 
+                      ]
+                      
+        return intersection_of_polygons(self.ROI, pt_mod_bbox) 
 
-    def displayFrame(self, name, frame):
-        cv2.putText(self.frame, "NN fps: {:.2f}".format(self.counter / (time.monotonic() - self.startTime)),
-                (2, frame.shape[0] - 4), cv2.FONT_HERSHEY_TRIPLEX, 0.4, color=(255, 255, 255))
-        
+    def displayFrame(self, name, frame, show_display):
+        car_count = 0
+             
         for detection in self.detections:
-            bbox = self.frameNorm(frame, (detection.xmin, detection.ymin, detection.xmax, detection.ymax))
-            cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (255, 0, 0), 2)
-            cv2.putText(frame, self.labelMap[detection.label], (bbox[0] + 10, bbox[1] + 20), \
-                cv2.FONT_HERSHEY_TRIPLEX, 0.5, 255)
-            cv2.putText(frame, f"{int(detection.confidence * 100)}%", (bbox[0] + 10, bbox[1] + 40), \
-                cv2.FONT_HERSHEY_TRIPLEX, 0.5, 255)
+            bbox_color = (0,0,255) # red
+            
+            # address bbox with correct label
+            if self.labelMap[detection.label] in ["car", "motorbike", "person"]:
+                bbox = self.frameNorm(frame, (detection.xmin, detection.ymin, detection.xmax, detection.ymax))        
+                
+                if self.bbox_in_roi(bbox):
+                    bbox_color = (0,255,0) # green
+                    car_count += 1
+                
+                cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), bbox_color, 2)
+                cv2.putText(frame, self.labelMap[detection.label], (bbox[0] + 10, bbox[1] + 20), \
+                    cv2.FONT_HERSHEY_TRIPLEX, 0.5, bbox_color)
+                cv2.putText(frame, f"{int(detection.confidence * 100)}%", (bbox[0] + 10, bbox[1] + 40), \
+                    cv2.FONT_HERSHEY_TRIPLEX, 0.5, bbox_color)
+                
+        # resize frame
+        frame = self.resize_frame_with_border(frame)
         
+        # draw ROI
+        cv2.polylines(frame, [np.asarray(self.ROI, np.int32).reshape((-1,1,2))], True, (255,255,255), 2)
+        
+        # add text
+        cv2.putText(frame, text=f"DETECTION", 
+					org=(int(frame.shape[1]*0.008), int(frame.shape[0]*0.1)), 
+					fontFace=cv2.FONT_HERSHEY_SIMPLEX, 
+					fontScale=1, color=(255,255,255), thickness=2, lineType=cv2.LINE_AA)
+        
+        # show NN FPS
+        cv2.putText(frame, text="NN fps: {:.2f}".format(self.counter / (time.monotonic() - self.startTime)),
+					org=(int(frame.shape[1]*0.008), int(frame.shape[0]*0.2)), 
+					fontFace=cv2.FONT_HERSHEY_SIMPLEX, 
+					fontScale=0.7, color=(255,255,255), thickness=2, lineType=cv2.LINE_AA)
+        
+        # set return parameters for detect_intersections()
         self.debugFrame = frame
-        cv2.imshow(name, frame)
+        self.car_count = car_count
+        
+        if show_display:
+            cv2.imshow(name, frame)
 
     def detect_intersections(self):
+        """
+            Returns Debug Frame and Number of Detections in ROI
+        """
+        self.inference(show_display = False)
+        
+        return self.car_count, self.debugFrame
+        
+        
+    def set_frame_and_roi(self, frame, camera):
+        """
+            Empty function
+        """
         pass
           
     def __iter__(self):
@@ -165,17 +232,13 @@ class Oak():
         """
 
         # Set the width and height.
-        frame = self.get_frame()
-        while frame is None:
-            frame = self.get_frame()
-            time.sleep(0.01)
-            
+        frame = self.get_frame()            
         self.dimensions = frame.shape
         fe_height, fe_width, _ = (450, 800, 3)
         cam_height, cam_width, _ = self.dimensions
         
         self.frontend_ratio = [cam_width/fe_width, cam_height/fe_height]
-
+        
 class OakIterator:
     """
         This object is created so that you can iterate through a camera object
@@ -190,20 +253,15 @@ class OakIterator:
     def __next__(self):
         """
             Allows iterating over this object to get each frame. Ex: "for frame in camera..."
-        """
-        frame = self.camera.get_frame()
-        while frame is None:
-            frame = self.camera.get_frame()
-            time.sleep(0.01)
-        
-        return frame
+        """        
+        return self.camera.get_frame()
 
 #### testing below ####
 if __name__ == "__main__":
     camera1 = Oak()
 
     while True:
-        camera1.inference()
+        camera1.inference(show_display = True)
     
         if cv2.waitKey(1) == ord('q'):
             break

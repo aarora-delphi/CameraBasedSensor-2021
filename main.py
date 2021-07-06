@@ -24,6 +24,8 @@ from video import Video
 from utils import *
 from oak import Oak
 
+OAK = False
+
 #Socket Vars
 HOST = "0.0.0.0"
 #HOST = 'localhost'
@@ -186,10 +188,16 @@ def __get_frames():
         """
                 Generator function to get frames constantly to the frontend and to kickstart the detection on each frame.
         """
-        global thread, ACTIVE_YOLO_THREAD
+        global thread, ACTIVE_YOLO_THREAD, OAK, DEBUG_FRAME
         for frame in camera_dictionary[current_camera]:
                 roi = camera_dictionary[current_camera].ROI
-
+                
+                ### 7-6-2021 testing
+                if roi and OAK:
+                    numCars, detection_debug_frame = camera_dictionary[current_camera].detect_intersections() 
+                    DEBUG_FRAME = detection_debug_frame
+                ###
+                
                 # Check to make sure that the current camera has a specified ROI and that there's no thread running.
                 if roi and not ACTIVE_YOLO_THREAD:
                         thread = threading.Thread(target=__perform_detection,args=(frame,), daemon = True)
@@ -205,7 +213,7 @@ def __get_debug_frames():
         global DEBUG_FRAME
         
         while True:
-                time.sleep(0.01)
+                
                 yield(prepare_frame_for_display(DEBUG_FRAME, current_camera))
 
 @app.route('/')
@@ -320,6 +328,7 @@ def __parseArguments():
         global detection_algo
         global current_camera
         global TRACK
+        global OAK
         
         parser = argparse.ArgumentParser("Run Detection Flask App")
         parser.add_argument("--model", default="cpu-tiny-yolov3", help="Model to load. Choose between cpu-yolov3, cpu-tiny-yolov3, tpu-tiny-yolov3, tpu-mobilenetv2")
@@ -339,7 +348,7 @@ def __parseArguments():
         elif args.model == "tpu-tiny-yolov3" or args.model == "tpu-mobilenetv2":
                 from tpuVideo import tpuVideo
                 detection_algo = tpuVideo(initialize_tpu(modelType=args.model), modelType=args.model)
-        
+
         if args.input == "webcam":
                 first_camera = 0 
                 camera_dictionary[first_camera] = Camera(first_camera)
@@ -354,6 +363,10 @@ def __parseArguments():
         elif args.input == "oak":
                 first_camera = 'OAK1'
                 camera_dictionary[first_camera] = Oak(first_camera)
+                
+                if args.model == "oak":
+                    detection_algo = camera_dictionary[first_camera]
+                    OAK = True
         
         elif args.input == "video":
                 video_folder = "./inputVideos"
