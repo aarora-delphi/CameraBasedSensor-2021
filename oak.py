@@ -182,7 +182,7 @@ class OakProcessing:
         """
             Returns Debug Frame and Number of Detections in ROI
         """
-        time.sleep(0.01)
+        time.sleep(0.05)
         print(f"DETECT {self.counter}")
 
         self.debugFrame = self.processFrame(self.frame.copy())
