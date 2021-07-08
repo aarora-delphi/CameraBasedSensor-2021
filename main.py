@@ -167,7 +167,8 @@ def __perform_detection(frame):
         global detection_algo
         global DEBUG_FRAME
         global TRACK
-
+        
+        time.sleep(0.01)
         with data_lock:
                 detection_algo.set_frame_and_roi(frame, camera_dictionary[current_camera]) 
                 numCars, detection_debug_frame = detection_algo.detect_intersections() 
