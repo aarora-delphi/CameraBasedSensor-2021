@@ -193,8 +193,14 @@ def __get_frames():
                 
                 roi = camera_dictionary[current_camera].ROI
                 
+                if roi and OAK:
+                    detection_algo.set_frame_and_roi(frame, camera_dictionary[current_camera]) 
+                    numCars, detection_debug_frame = detection_algo.detect_intersections() 
+                    DEBUG_FRAME = detection_debug_frame
+                
                 # Check to make sure that the current camera has a specified ROI and that there's no thread running.
-                if roi and not ACTIVE_YOLO_THREAD:
+                elif roi and not ACTIVE_YOLO_THREAD:
+                        print("THREADING")
                         thread = threading.Thread(target=__perform_detection,args=(frame,), daemon = True)
                         thread.start()
                         ACTIVE_YOLO_THREAD = True
