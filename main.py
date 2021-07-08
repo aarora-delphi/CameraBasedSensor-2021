@@ -22,7 +22,7 @@ from os.path import isfile, join
 from camera import Camera
 from video import Video
 from utils import *
-from oak import Oak
+from oak import Oak, OakProcessing
 
 OAK = False
 
@@ -183,27 +183,25 @@ def __perform_detection(frame):
                         
         ACTIVE_YOLO_THREAD = False
 
-
 def __get_frames():
         """
                 Generator function to get frames constantly to the frontend and to kickstart the detection on each frame.
         """
         global thread, ACTIVE_YOLO_THREAD, OAK, DEBUG_FRAME
         for frame in camera_dictionary[current_camera]:
-                roi = camera_dictionary[current_camera].ROI
                 
-                ### 7-6-2021 testing
-                if roi and OAK:
-                    numCars, detection_debug_frame = camera_dictionary[current_camera].detect_intersections() 
-                    DEBUG_FRAME = detection_debug_frame
-                ###
+                roi = camera_dictionary[current_camera].ROI
                 
                 # Check to make sure that the current camera has a specified ROI and that there's no thread running.
                 if roi and not ACTIVE_YOLO_THREAD:
                         thread = threading.Thread(target=__perform_detection,args=(frame,), daemon = True)
                         thread.start()
                         ACTIVE_YOLO_THREAD = True
+                
+                if OAK:
+                    frame = detection_algo.resize_frame_with_border(frame)
 
+                time.sleep(0.01)
                 yield(prepare_frame_for_display(frame, current_camera))
                 
 def __get_debug_frames():
@@ -213,7 +211,7 @@ def __get_debug_frames():
         global DEBUG_FRAME
         
         while True:
-                
+                time.sleep(0.01)
                 yield(prepare_frame_for_display(DEBUG_FRAME, current_camera))
 
 @app.route('/')
@@ -365,7 +363,7 @@ def __parseArguments():
                 camera_dictionary[first_camera] = Oak(first_camera)
                 
                 if args.model == "oak":
-                    detection_algo = camera_dictionary[first_camera]
+                    detection_algo = OakProcessing()
                     OAK = True
         
         elif args.input == "video":
@@ -389,7 +387,7 @@ if __name__ == "__main__":
         __parseArguments()
         set_track()
         
-        app.run(host="0.0.0.0", port=2000,  debug=False)
+        app.run(host="0.0.0.0", port=2001,  debug=False)
         
         if TRACK:
             s.close()

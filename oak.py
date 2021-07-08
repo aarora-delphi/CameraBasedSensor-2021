@@ -12,7 +12,7 @@ class Oak():
 
     def __init__(self, name = "OAK1"):
         self.name = name
-        self.ROI = [] # [[421, 197], [632, 73], [482, 331], [134, 332], [433, 65]] # sample ROI
+        self.ROI = [] # [[421, 197], [632, 73], [482, 331], [134, 332]] # sample ROI
         self.car_count = 0
         
         model_location = './OAK_Course_Examples/models/OpenVINO_2021_2/mobilenet-ssd_openvino_2021.2_6shave.blob'
@@ -62,10 +62,6 @@ class Oak():
                                                 left = 175, right = 175,
                                                 borderType = cv2.BORDER_CONSTANT, value = (0,0,0))
         return frame
-        
-    
-    def get_debug_frame(self):
-        return self.debugFrame
 
     def define_pipeline(self):
     
@@ -123,94 +119,8 @@ class Oak():
             self.detections = inDet.detections
             self.counter += 1
 
-        # if the frame is available, render detection data on frame and display.
-        if self.frame is not None:
-            frame = self.frame.copy()
-            self.displayFrame("rgb", frame, show_display)
-
-    # nn data (bounding box locations) are in <0..1> range - they need to be normalized with frame width/height
-    def frameNorm(self, frame, bbox):
-        normVals = np.full(len(bbox), frame.shape[0])
-        normVals[::2] = frame.shape[1]
-        return (np.clip(np.array(bbox), 0, 1) * normVals).astype(int)
-        
-    def bbox_in_roi(self, bbox):
-        """
-        Transform BBOX to match ROI frame size and check if BBOX in ROI
-        """
-    
-        # transform bbox to fit from (300x300) to (450, 800) frame size
-        mod_bbox = np.array(bbox) * 1.5
-        mod_bbox = [int(pt) for pt in mod_bbox]
-        mod_bbox[0] = mod_bbox[0] + 175
-        mod_bbox[2] = mod_bbox[2] + 175
-        pt_mod_bbox = [ [mod_bbox[0], mod_bbox[1]], 
-                        [mod_bbox[2], mod_bbox[1]],
-                        [mod_bbox[2], mod_bbox[3]],
-                        [mod_bbox[0], mod_bbox[3]] 
-                      ]
-                      
-        return intersection_of_polygons(self.ROI, pt_mod_bbox) 
-
-    def displayFrame(self, name, frame, show_display):
-        car_count = 0
-             
-        for detection in self.detections:
-            bbox_color = (0,0,255) # red
-            
-            # address bbox with correct label
-            if self.labelMap[detection.label] in ["car", "motorbike", "person"]:
-                bbox = self.frameNorm(frame, (detection.xmin, detection.ymin, detection.xmax, detection.ymax))        
-                
-                if self.bbox_in_roi(bbox):
-                    bbox_color = (0,255,0) # green
-                    car_count += 1
-                
-                cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), bbox_color, 2)
-                cv2.putText(frame, self.labelMap[detection.label], (bbox[0] + 10, bbox[1] + 20), \
-                    cv2.FONT_HERSHEY_TRIPLEX, 0.5, bbox_color)
-                cv2.putText(frame, f"{int(detection.confidence * 100)}%", (bbox[0] + 10, bbox[1] + 40), \
-                    cv2.FONT_HERSHEY_TRIPLEX, 0.5, bbox_color)
-                
-        # resize frame
-        frame = self.resize_frame_with_border(frame)
-        
-        # draw ROI
-        cv2.polylines(frame, [np.asarray(self.ROI, np.int32).reshape((-1,1,2))], True, (255,255,255), 2)
-        
-        # add text
-        cv2.putText(frame, text=f"DETECTION", 
-					org=(int(frame.shape[1]*0.008), int(frame.shape[0]*0.1)), 
-					fontFace=cv2.FONT_HERSHEY_SIMPLEX, 
-					fontScale=1, color=(255,255,255), thickness=2, lineType=cv2.LINE_AA)
-        
-        # show NN FPS
-        cv2.putText(frame, text="NN fps: {:.2f}".format(self.counter / (time.monotonic() - self.startTime)),
-					org=(int(frame.shape[1]*0.008), int(frame.shape[0]*0.2)), 
-					fontFace=cv2.FONT_HERSHEY_SIMPLEX, 
-					fontScale=0.7, color=(255,255,255), thickness=2, lineType=cv2.LINE_AA)
-        
-        # set return parameters for detect_intersections()
-        self.debugFrame = frame
-        self.car_count = car_count
-        
-        if show_display:
-            cv2.imshow(name, frame)
-
-    def detect_intersections(self):
-        """
-            Returns Debug Frame and Number of Detections in ROI
-        """
-        self.inference(show_display = False)
-        
-        return self.car_count, self.debugFrame
-        
-        
-    def set_frame_and_roi(self, frame, camera):
-        """
-            Empty function
-        """
-        pass
+        print(f"INFERENCE {self.counter}")
+        return self.frame
           
     def __iter__(self):
         """
@@ -238,7 +148,138 @@ class Oak():
         cam_height, cam_width, _ = self.dimensions
         
         self.frontend_ratio = [cam_width/fe_width, cam_height/fe_height]
+
+
+class OakProcessing:
+    """
+        This object will determine if the ROI and detections match
+        This object will also draw artifacts on frame
+    """
+    def __init__(self):
+        self.frame = None
+        self.ROI = []
+        self.detections = None
+        self.car_count = 0
+        self.debugFrame = None
+        self.counter = 0
+        self.startTime = 0
+        self.labelMap = ["background", "aeroplane", "bicycle", "bird", "boat", 
+                    "bottle", "bus", "car", "cat", "chair", "cow", \
+                    "diningtable", "dog", "horse", "motorbike", "person", \
+                    "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
+    
+    def set_frame_and_roi(self, frame, camera):
+        """
+            Empty function
+        """
+        self.frame = frame
+        self.detections = camera.detections
+        self.ROI = camera.ROI
+        self.counter = camera.counter
+        self.startTime = camera.startTime
+    
+    def detect_intersections(self, show_display = False):
+        """
+            Returns Debug Frame and Number of Detections in ROI
+        """
+        time.sleep(0.01)
+        print(f"DETECT {self.counter}")
+
+        self.debugFrame = self.processFrame(self.frame.copy())
         
+        if show_display:
+            cv2.imshow("rgb", self.debugFrame)
+        
+        return self.car_count, self.debugFrame    
+        
+    def processFrame(self, frame):
+
+        frame = self.processFrameBBOX(frame)
+        frame = self.resize_frame_with_border(frame)
+        frame = self.processFrameROI(frame)
+        frame = self.processFrameText(frame)
+        
+        return frame
+
+    def processFrameBBOX(self, frame):
+        car_count = 0
+        
+        for detection in self.detections:
+            bbox_color = (0,0,255) # red
+            
+            # address bbox with correct label
+            if self.labelMap[detection.label] in ["car", "motorbike", "person"]:
+                bbox = self.frameNorm(frame, (detection.xmin, detection.ymin, detection.xmax, detection.ymax))        
+                
+                if self.bbox_in_roi(bbox):
+                    bbox_color = (0,255,0) # green
+                    car_count += 1
+                
+                cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), bbox_color, 2)
+                cv2.putText(frame, self.labelMap[detection.label], (bbox[0] + 10, bbox[1] + 20), \
+                    cv2.FONT_HERSHEY_TRIPLEX, 0.5, bbox_color)
+                cv2.putText(frame, f"{int(detection.confidence * 100)}%", (bbox[0] + 10, bbox[1] + 40), \
+                    cv2.FONT_HERSHEY_TRIPLEX, 0.5, bbox_color)
+        
+        self.car_count = car_count
+        
+        return frame
+        
+    def processFrameROI(self, frame):
+        # draw ROI
+        cv2.polylines(frame, [np.asarray(self.ROI, np.int32).reshape((-1,1,2))], True, (255,255,255), 2)
+        
+        return frame
+
+    def processFrameText(self, frame):
+        # add text
+        cv2.putText(frame, text=f"DETECTION", 
+					org=(int(frame.shape[1]*0.008), int(frame.shape[0]*0.1)), 
+					fontFace=cv2.FONT_HERSHEY_SIMPLEX, 
+					fontScale=1, color=(255,255,255), thickness=2, lineType=cv2.LINE_AA)
+        
+        # show NN FPS
+        cv2.putText(frame, text="NN fps: {:.2f}".format(self.counter / (time.monotonic() - self.startTime)),
+					org=(int(frame.shape[1]*0.008), int(frame.shape[0]*0.2)), 
+					fontFace=cv2.FONT_HERSHEY_SIMPLEX, 
+					fontScale=0.7, color=(255,255,255), thickness=2, lineType=cv2.LINE_AA)
+
+        return frame
+
+    # nn data (bounding box locations) are in <0..1> range - they need to be normalized with frame width/height
+    def frameNorm(self, frame, bbox):
+        normVals = np.full(len(bbox), frame.shape[0])
+        normVals[::2] = frame.shape[1]
+        return (np.clip(np.array(bbox), 0, 1) * normVals).astype(int)
+        
+    def bbox_in_roi(self, bbox):
+        """
+        Transform BBOX to match ROI frame size and check if BBOX in ROI
+        """
+    
+        # transform bbox to fit from (300x300) to (450, 800) frame size
+        mod_bbox = np.array(bbox) * 1.5
+        mod_bbox = [int(pt) for pt in mod_bbox]
+        mod_bbox[0] = mod_bbox[0] + 175
+        mod_bbox[2] = mod_bbox[2] + 175
+        pt_mod_bbox = [ [mod_bbox[0], mod_bbox[1]], 
+                        [mod_bbox[2], mod_bbox[1]],
+                        [mod_bbox[2], mod_bbox[3]],
+                        [mod_bbox[0], mod_bbox[3]] 
+                      ]
+                      
+        return intersection_of_polygons(self.ROI, pt_mod_bbox) 
+
+    def resize_frame_with_border(self, frame):
+        """
+        Expecting 300x300 frame from oak, return size (450, 800)
+        """
+        frame = cv2.resize(frame, (450,450), interpolation = cv2.INTER_AREA)
+        frame = cv2.copyMakeBorder(src = frame, top = 0, bottom = 0, 
+                                                left = 175, right = 175,
+                                                borderType = cv2.BORDER_CONSTANT, value = (0,0,0))
+        return frame
+
 class OakIterator:
     """
         This object is created so that you can iterate through a camera object
@@ -254,14 +295,27 @@ class OakIterator:
         """
             Allows iterating over this object to get each frame. Ex: "for frame in camera..."
         """        
-        return self.camera.get_frame()
+        return self.camera.inference()
 
 #### testing below ####
 if __name__ == "__main__":
+
     camera1 = Oak()
+    detection_algo = OakProcessing()
 
     while True:
-        camera1.inference(show_display = True)
-    
+        frame = camera1.inference()
+        detection_algo.set_frame_and_roi(frame, camera1)
+        detection_algo.detect_intersections(show_display = True)
         if cv2.waitKey(1) == ord('q'):
-            break
+            break    
+    
+
+##################################
+#    camera1 = Oak()
+#
+#    while True:
+#        camera1.inference(show_display = True)
+#    
+#        if cv2.waitKey(1) == ord('q'):
+#            break
