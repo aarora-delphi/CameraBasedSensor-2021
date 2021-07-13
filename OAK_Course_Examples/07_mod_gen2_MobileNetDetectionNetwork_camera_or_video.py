@@ -138,7 +138,7 @@ with dai.Device(pipeline) as device:
         for detection in detections:
             bbox_color = (0,0,255)
             
-            if labelMap[detection.label] in ["car", "motorbike"]:
+            if labelMap[detection.label] in ["car", "motorbike", "person"]:
                 bbox = frameNorm(frame, (detection.xmin, detection.ymin, detection.xmax, detection.ymax))
 
                 in_roi = is_intersection(roi_line, bbox)
