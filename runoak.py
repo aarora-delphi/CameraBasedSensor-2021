@@ -5,6 +5,7 @@ import cv2
 import depthai as dai
 import numpy as np
 import time
+from datetime import datetime
 
 from find_intersect import intersection_of_polygons
 
@@ -92,13 +93,11 @@ class Oak():
             self.detections = inDet.detections
             self.counter += 1
 
-        print(f"INFERENCE {self.counter}")
     
     def detect_intersections(self, show_display = False):
         """
             Returns Debug Frame and Number of Detections in ROI
         """
-        print(f"DETECT {self.counter}")
 
         self.processFrame()
         
@@ -127,7 +126,8 @@ class Oak():
             if self.labelMap[detection.label] in ["car", "motorbike", "person"]:
                 bbox = self.frameNorm(frame, (detection.xmin, detection.ymin, detection.xmax, detection.ymax))        
                 
-                if self.bbox_in_roi(bbox):
+                in_roi = self.bbox_in_roi(bbox)
+                if in_roi:
                     bbox_color = (0,255,0) # green
                     car_count += 1
                 
@@ -136,6 +136,8 @@ class Oak():
                     cv2.FONT_HERSHEY_TRIPLEX, 0.5, bbox_color)
                 cv2.putText(frame, f"{int(detection.confidence * 100)}%", (bbox[0] + 10, bbox[1] + 40), \
                     cv2.FONT_HERSHEY_TRIPLEX, 0.5, bbox_color)
+                
+                print(f"{'1 ROI' if in_roi else '0 ROI'} {self.labelMap[detection.label]} {datetime.now().strftime('%H:%M:%S.%f')[:-3]}")
         
         self.car_count = car_count
         
@@ -172,8 +174,10 @@ class Oak():
                         [mod_bbox[2], mod_bbox[3]],
                         [mod_bbox[0], mod_bbox[3]] 
                       ]
-                      
-        return intersection_of_polygons(self.ROI, pt_mod_bbox) 
+        
+        in_roi = intersection_of_polygons(self.ROI, pt_mod_bbox)   
+            
+        return in_roi
 
 #### testing below ####
 if __name__ == "__main__":
