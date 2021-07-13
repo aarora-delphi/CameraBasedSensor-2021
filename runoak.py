@@ -176,7 +176,10 @@ class Oak():
                         [mod_bbox[0], mod_bbox[3]] 
                       ]
         
-        in_roi = intersection_of_polygons(self.ROI, pt_mod_bbox)   
+        try:
+            in_roi = intersection_of_polygons(self.ROI, pt_mod_bbox)   
+        except:
+            in_roi = False
             
         return in_roi
 
