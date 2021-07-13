@@ -12,7 +12,7 @@ class Oak():
 
     def __init__(self, name = "OAK1"):
         self.name = name
-        self.ROI = [] # [[421, 197], [632, 73], [482, 331], [134, 332]] # sample ROI
+        self.ROI = [[50, 50], [250, 50], [250, 250], [50, 250]] # sample ROI
         self.car_count = 0
         
         model_location = './OAK_Course_Examples/models/OpenVINO_2021_2/mobilenet-ssd_openvino_2021.2_6shave.blob'
@@ -34,35 +34,7 @@ class Oak():
         self.pipeline = self.define_pipeline()
         self.device = dai.Device(self.pipeline)
         self.qRgb, self.qDet = self.start_pipeline()
-        
-        self.identify_stream_dimensions()
             
-    def get_frame(self):
-        """
-        Retrieves next frame - if unavailable returns self.frame
-        """
-        inRgb = self.qRgb.tryGet()
-    
-        if inRgb is not None:
-            self.frame = inRgb.getCvFrame()
-            frame = self.resize_frame_with_border(self.frame)
-            return frame
-         
-        return self.resize_frame_with_border(self.frame)
-        
-    def resize_frame_with_border(self, frame):
-        """
-        Expecting 300x300 frame from oak, return size (450, 800)
-        """
-        # upscale image from (300,300) to (450,450)
-        frame = cv2.resize(frame, (450,450), interpolation = cv2.INTER_AREA)
-            
-        # add left and right border to image of 175 pixels for total size (450, 800)
-        frame = cv2.copyMakeBorder(src = frame, top = 0, bottom = 0, 
-                                                left = 175, right = 175,
-                                                borderType = cv2.BORDER_CONSTANT, value = (0,0,0))
-        return frame
-
     def define_pipeline(self):
     
         # Start defining a pipeline
@@ -121,63 +93,6 @@ class Oak():
             self.counter += 1
 
         print(f"INFERENCE {self.counter}")
-        return self.frame
-          
-    def __iter__(self):
-        """
-            Overwrites the default iter function so that you can iterate through this camera.
-        """
-        return OakIterator(self)
-
-
-    def set_roi_coordinates(self, coordinates):
-        """
-            Updates Region of Interest(ROI) with the coordinates specified from the frontend.
-        """
-        self.ROI = coordinates
-        
-        
-    def identify_stream_dimensions(self):
-        """
-            Get the dimensions of the frame to send to frontend.
-        """
-
-        # Set the width and height.
-        frame = self.get_frame()            
-        self.dimensions = frame.shape
-        fe_height, fe_width, _ = (450, 800, 3)
-        cam_height, cam_width, _ = self.dimensions
-        
-        self.frontend_ratio = [cam_width/fe_width, cam_height/fe_height]
-
-
-class OakProcessing:
-    """
-        This object will determine if the ROI and detections match
-        This object will also draw artifacts on frame
-    """
-    def __init__(self):
-        self.frame = None
-        self.ROI = []
-        self.detections = None
-        self.car_count = 0
-        self.debugFrame = None
-        self.counter = 0
-        self.startTime = 0
-        self.labelMap = ["background", "aeroplane", "bicycle", "bird", "boat", 
-                    "bottle", "bus", "car", "cat", "chair", "cow", \
-                    "diningtable", "dog", "horse", "motorbike", "person", \
-                    "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
-    
-    def set_frame_and_roi(self, frame, camera):
-        """
-            Empty function
-        """
-        self.frame = frame
-        self.detections = camera.detections
-        self.ROI = camera.ROI
-        self.counter = camera.counter
-        self.startTime = camera.startTime
     
     def detect_intersections(self, show_display = False):
         """
@@ -185,21 +100,21 @@ class OakProcessing:
         """
         print(f"DETECT {self.counter}")
 
-        self.debugFrame = self.processFrame(self.frame.copy())
+        self.processFrame()
         
         if show_display:
             cv2.imshow("rgb", self.debugFrame)
         
         return self.car_count, self.debugFrame    
         
-    def processFrame(self, frame):
-
+    def processFrame(self):
+    
+        frame = self.frame.copy()
         frame = self.processFrameBBOX(frame)
-        frame = self.resize_frame_with_border(frame)
         frame = self.processFrameROI(frame)
         frame = self.processFrameText(frame)
         
-        return frame
+        self.debugFrame = frame
 
     def processFrameBBOX(self, frame):
         car_count = 0
@@ -233,17 +148,9 @@ class OakProcessing:
         return frame
 
     def processFrameText(self, frame):
-        # add text
-        cv2.putText(frame, text=f"DETECTION", 
-					org=(int(frame.shape[1]*0.008), int(frame.shape[0]*0.1)), 
-					fontFace=cv2.FONT_HERSHEY_SIMPLEX, 
-					fontScale=1, color=(255,255,255), thickness=2, lineType=cv2.LINE_AA)
-        
-        # show NN FPS
-        cv2.putText(frame, text="NN fps: {:.2f}".format(self.counter / (time.monotonic() - self.startTime)),
-					org=(int(frame.shape[1]*0.008), int(frame.shape[0]*0.2)), 
-					fontFace=cv2.FONT_HERSHEY_SIMPLEX, 
-					fontScale=0.7, color=(255,255,255), thickness=2, lineType=cv2.LINE_AA)
+		# show NN FPS
+        cv2.putText(frame, "NN fps: {:.2f}".format(self.counter / (time.monotonic() - self.startTime)),
+                                (2, 20), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color=(255, 255, 255))
 
         return frame
 
@@ -259,10 +166,7 @@ class OakProcessing:
         """
     
         # transform bbox to fit from (300x300) to (450, 800) frame size
-        mod_bbox = np.array(bbox) * 1.5
-        mod_bbox = [int(pt) for pt in mod_bbox]
-        mod_bbox[0] = mod_bbox[0] + 175
-        mod_bbox[2] = mod_bbox[2] + 175
+        mod_bbox = bbox
         pt_mod_bbox = [ [mod_bbox[0], mod_bbox[1]], 
                         [mod_bbox[2], mod_bbox[1]],
                         [mod_bbox[2], mod_bbox[3]],
@@ -271,43 +175,14 @@ class OakProcessing:
                       
         return intersection_of_polygons(self.ROI, pt_mod_bbox) 
 
-    def resize_frame_with_border(self, frame):
-        """
-        Expecting 300x300 frame from oak, return size (450, 800)
-        """
-        frame = cv2.resize(frame, (450,450), interpolation = cv2.INTER_AREA)
-        frame = cv2.copyMakeBorder(src = frame, top = 0, bottom = 0, 
-                                                left = 175, right = 175,
-                                                borderType = cv2.BORDER_CONSTANT, value = (0,0,0))
-        return frame
-
-class OakIterator:
-    """
-        This object is created so that you can iterate through a camera object
-    """
-    
-    def __init__(self, camera):
-        """
-            Basic setup of iterator object.
-        """
-        self.camera = camera
-
-    def __next__(self):
-        """
-            Allows iterating over this object to get each frame. Ex: "for frame in camera..."
-        """        
-        return self.camera.inference()
-
 #### testing below ####
 if __name__ == "__main__":
 
     camera1 = Oak()
-    detection_algo = OakProcessing()
 
     while True:
-        frame = camera1.inference()
-        detection_algo.set_frame_and_roi(frame, camera1)
-        detection_algo.detect_intersections(show_display = True)
+        camera1.inference()
+        camera1.detect_intersections(show_display = True)
         if cv2.waitKey(1) == ord('q'):
             break    
     
