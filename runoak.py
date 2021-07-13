@@ -8,6 +8,7 @@ import time
 from datetime import datetime
 
 from find_intersect import intersection_of_polygons
+from runtrack import DTrack
 
 class Oak():
 
@@ -104,7 +105,7 @@ class Oak():
         if show_display:
             cv2.imshow("rgb", self.debugFrame)
         
-        return self.car_count, self.debugFrame    
+        return self.car_count 
         
     def processFrame(self):
     
@@ -181,12 +182,14 @@ class Oak():
 
 #### testing below ####
 if __name__ == "__main__":
-
     camera1 = Oak()
+    track1 = DTrack(connect = True)
 
     while True:
         camera1.inference()
-        camera1.detect_intersections(show_display = True)
+        numCars = camera1.detect_intersections(show_display = True)
+        track1.log_car_detection(numCars)
+        
         if cv2.waitKey(1) == ord('q'):
             break    
     
