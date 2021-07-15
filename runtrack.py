@@ -3,7 +3,8 @@ import socket
 import json
 from collections import deque
 import pickle
-from datetime import datetime
+from datetime import datetime, timezone
+import pytz
 
 class DTrack():
 
@@ -83,9 +84,8 @@ class DTrack():
 
         # Gets current time in epoch from Jan 1 1970 in utc
         # s1 = int(time.time())
-        
-        # gets current time in epoch from Jan 1 1970 in local timezone
-        s1 = int(datetime.now().timestamp())
+
+        s1 = int(time.time()) - 25200 # utc to pst time
 
         json_message = {
                 "camera_id": "N/A",
