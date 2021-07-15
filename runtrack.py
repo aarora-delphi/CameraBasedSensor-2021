@@ -81,8 +81,11 @@ class DTrack():
             numCars: the number of cars detected in the frame by the model
         '''
 
-        # Gets current time in epoch from Jan 1 1970
-        s1 = int(time.time())
+        # Gets current time in epoch from Jan 1 1970 in utc
+        # s1 = int(time.time())
+        
+        # gets current time in epoch from Jan 1 1970 in local timezone
+        s1 = int(datetime.now().timestamp())
 
         json_message = {
                 "camera_id": "N/A",
