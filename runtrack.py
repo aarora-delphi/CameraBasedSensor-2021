@@ -2,6 +2,7 @@ import time
 import socket 
 import json
 from collections import deque
+import pickle
 
 class DTrack():
 
@@ -21,16 +22,30 @@ class DTrack():
         if self.connect:
             self.set_track()
         
+        self.pickle_car_count = "car_count.pb"
         # JSON Logging related variables
         self.min_frames = 5
-        self.car_count = 0
+        ###self.car_count = 0
+        self.car_count = self.load(self.pickle_car_count)
         self.car_counts = deque([-1]*self.min_frames)
         self.in_lane = False
         self.out_lane = True
         self.total_cars_count = 0
         self.first = 0
         self.prev = 0
-        
+
+    def save(self, file_name, obj):
+        with open(file_name, 'wb') as fobj:
+            pickle.dump(obj, fobj)
+
+    def load(self, file_name):
+        try:
+            with open(file_name, 'rb') as fobj:
+                return pickle.load(fobj)
+        except:
+            print(f"[INFO] Failed to Load {file_name}")
+            return 0
+
     def set_track(self):
         print("[INFO] Searching for Delphi Track...")
         print(f"[INFO] Hostname: {socket.gethostname()}")
@@ -86,6 +101,12 @@ class DTrack():
             #Car left ROI
             json_message["status"] = "002"
             self.car_count += 1
+
+            if self.car_count >= 99999:
+                self.car_count = 0
+
+            self.save(self.pickle_car_count, self.car_count)
+            
             print(json_message)
             print(self.__create_track_string(json_message))
             self.out_lane = True
