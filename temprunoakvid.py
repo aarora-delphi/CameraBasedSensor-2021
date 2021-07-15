@@ -185,7 +185,7 @@ with dai.Device(pipeline) as device:
                 cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), bbox_color, 2)
                 cv2.putText(frame, labelMap[detection.label], (bbox[0] + 10, bbox[1] + 20), cv2.FONT_HERSHEY_TRIPLEX, 0.5, bbox_color)
                 cv2.putText(frame, f"{int(detection.confidence * 100)}%", (bbox[0] + 10, bbox[1] + 40), cv2.FONT_HERSHEY_TRIPLEX, 0.5, bbox_color)
-                print(f"{'1 ROI' if in_roi else '0 ROI'} {labelMap[detection.label]} {datetime.now().strftime('%H:%M:%S.%f')[:-3]}")
+                #print(f"{'1 ROI' if in_roi else '0 ROI'} {labelMap[detection.label]} {datetime.now().strftime('%H:%M:%S.%f')[:-3]}")
         
         cv2.putText(frame, "NUMCAR: {}".format(car_count), (2, 40), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color=(255, 255, 0))
         cv2.imshow(name, frame)

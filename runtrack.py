@@ -3,6 +3,7 @@ import socket
 import json
 from collections import deque
 import pickle
+from datetime import datetime
 
 class DTrack():
 
@@ -137,4 +138,4 @@ class DTrack():
             #s.sendall(bytes(data,encoding="utf-8"))
             self.conn.sendall(to_send)
             #server.sendto(to_send, ('255.255.255.255', 5000))
-            print("message sent")
+            print(f"message sent at time {datetime.now().strftime('%H:%M:%S.%f')[:-3]}")
