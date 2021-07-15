@@ -103,8 +103,12 @@ class Oak():
         self.processFrame()
         
         if show_display:
-            cv2.imshow("rgb", self.debugFrame)
+            cv2.imshow("debug", self.debugFrame)
+            cv2.imshow("rgb", self.frame)
         
+        #if self.car_count > 0:
+        #    print(f"NUMCAR: {self.car_count}")
+
         return self.car_count 
         
     def processFrame(self):
@@ -154,6 +158,8 @@ class Oak():
 		# show NN FPS
         cv2.putText(frame, "NN fps: {:.2f}".format(self.counter / (time.monotonic() - self.startTime)),
                                 (2, 20), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color=(255, 255, 255))
+
+        cv2.putText(frame, "NUMCAR: {}".format(self.car_count), (2, 40), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color=(255, 255, 255))
 
         return frame
 

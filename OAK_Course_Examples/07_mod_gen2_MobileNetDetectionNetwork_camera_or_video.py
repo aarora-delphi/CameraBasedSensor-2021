@@ -12,7 +12,7 @@ import shapely
 from shapely.geometry import LineString, Point
 
 nnPath    = str((Path(__file__).parent / Path('./models/OpenVINO_2021_2/mobilenet-ssd_openvino_2021.2_6shave.blob')).resolve().absolute())
-videoPath = str((Path(__file__).parent / Path('./videos/video123.mp4')).resolve().absolute())
+videoPath = str((Path(__file__).parent / Path('./videos/video123-small.mp4')).resolve().absolute())
 
 # MobilenetSSD label texts
 labelMap = ["background", "aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow",
@@ -150,6 +150,7 @@ with dai.Device(pipeline) as device:
                 cv2.putText(frame, labelMap[detection.label], (bbox[0] + 10, bbox[1] + 20), cv2.FONT_HERSHEY_TRIPLEX, 0.5, bbox_color)
                 cv2.putText(frame, f"{int(detection.confidence * 100)}%", (bbox[0] + 10, bbox[1] + 40), cv2.FONT_HERSHEY_TRIPLEX, 0.5, bbox_color)
                 print(f"{(bbox[0], bbox[1]), (bbox[2], bbox[3])} {labelMap[detection.label]}")
+        
         cv2.imshow(name, frame)
         
 
@@ -160,7 +161,7 @@ with dai.Device(pipeline) as device:
             break
 
         if video:
-            
+            #frame = cv2.resize(frame, (0, 0), fx = 0.4, fy = 0.4) 
             # Prepare image frame from video for sending to device
             img = dai.ImgFrame()
             img.setData(to_planar(frame, (300, 300)))
