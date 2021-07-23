@@ -5,6 +5,7 @@ from collections import deque
 import pickle
 from datetime import datetime, timezone
 import pytz
+import subprocess
 
 class DTrack():
 
@@ -20,6 +21,8 @@ class DTrack():
         self.conn = None
         self.addr = None
         
+        self.offset = int(subprocess.check_output("./timezone.sh").strip()) # gets timezone diff in seconds from utc
+
         # set Track connection up
         if self.connect:
             self.set_track()
@@ -85,7 +88,8 @@ class DTrack():
         # Gets current time in epoch from Jan 1 1970 in utc
         # s1 = int(time.time())
 
-        s1 = int(time.time()) - 25200 # utc to pst time
+        s1 = int(time.time()) + self.offset # epoch time + timezone difference in seconds 
+        #s1 = int(time.time()) - 25200 # utc to pst time
 
         json_message = {
                 "camera_id": "N/A",
