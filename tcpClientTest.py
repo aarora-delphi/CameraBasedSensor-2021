@@ -1,6 +1,7 @@
 import time
 import socket 
 import json
+import re
 
 class DTrack():
 
@@ -49,23 +50,52 @@ class DTrack():
             self.conn, self.addr = self.s.accept()
             print("[INFO] Found Delphi Track - Connection from: " + str(self.addr))
 
-    def parse_message2(self, message2):
-        pass   
+    def parse_message2(self, message):
+        """
+        The Delphi Track system send 3 messages during the syncing process.
+        Message 2 contains the time and date information set on the track system.
+        """
+        message_pair = re.findall('..?', message)
+        message_bytes = []
+        message_int = []
+        message_parsed = {} # dictionary
+    
+        for pair in message_pair:
+            byte_val = bytes.fromhex(pair)
+            int_val = int.from_bytes(byte_val, "little", signed="True")
+    
+            message_bytes.append(byte_val)
+            message_int.append(int_val)
+    
+        year_int = int.from_bytes(message_bytes[15] + message_bytes[16], "little", signed="True")
+    
+        message_parsed["second"]        = message_int[3]
+        message_parsed["minute"]        = message_int[5]
+        message_parsed["hour"]          = message_int[7]
+        message_parsed["dayofmonth"]    = message_int[9] # maybe add 1 here bc dtrack subtracts 1
+        message_parsed["dayofweek"]     = message_int[11]
+        message_parsed["month"]         = message_int[13]
+        message_parsed["year"]          = year_int
+    
+        print("MESSAGE 2 PARSED: ", message_parsed)
+    
+        return message_parsed
 
     def sync_time(self):
         self.send_response(response = '1006051003E8') # response 1
         self.send_response(response = '1006101003DD') # response 2
         self.send_response(response = '1006061003E7') # response 3
+       
+        message123 = self.receive_message()
+        message1 = message123[:24]
+        message2 = message123[24:-12]
+        message3 = message123[-12:]
         
-        #self.send_response(response = 'FFFFFF') # response 1
-        message1 = self.receive_message()
-        
-        #self.send_response(response = '1006101003DD') # response 2
-        message2 = self.receive_message()
-        
-        #self.send_response(response = '1006061003E7') # response 3
-        message3 = self.receive_message()
-        
+        print("MESSAGE123", message1, message2, message3)
+        assert message123 == message1 + message2 + message3
+
+        m2hash = self.parse_message2(message2)
+
         #message1 = self.receive_message()             # message 1
         #self.send_response(response = '1006051003E8') # response 1
 
@@ -76,9 +106,6 @@ class DTrack():
         #self.send_response(response = '1006061003E7') # response 3
 
     def send_response(self, response):
-        #response = str(int(response, 16))
-        #to_send = bytes(response, 'utf-8')
-        
         to_send = bytes.fromhex(response)
         self.conn.sendall(to_send)
         print(f"SENT RESPONSE: {response}")
