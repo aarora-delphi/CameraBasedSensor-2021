@@ -17,7 +17,7 @@
 # History:
 #
 # 06.05.2016 - First Version
-#
+# 07.27.2021 - Commented out Timezone
 # #######################################################################
 
 
@@ -27,10 +27,10 @@ adminPSWD="!ns!ght"
 # get the passed parameters
 newDate=$1
 newTime=$2
-newTZ=$3
+### newTZ=$3
 
 # reset the system time zone, date and time
-echo $adminPSWD | sudo -S timedatectl set-timezone $newTZ
+### echo $adminPSWD | sudo -S timedatectl set-timezone $newTZ
 echo $adminPSWD | sudo -S timedatectl set-time $newDate
 echo $adminPSWD | sudo -S timedatectl set-time $newTime
 

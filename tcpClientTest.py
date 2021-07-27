@@ -2,6 +2,7 @@ import time
 import socket 
 import json
 import re
+import subprocess
 
 class DTrack():
 
@@ -72,9 +73,9 @@ class DTrack():
         message_parsed["second"]        = message_int[3]
         message_parsed["minute"]        = message_int[5]
         message_parsed["hour"]          = message_int[7]
-        message_parsed["dayofmonth"]    = message_int[9] # maybe add 1 here bc dtrack subtracts 1
+        message_parsed["dayofmonth"]    = message_int[9] 
         message_parsed["dayofweek"]     = message_int[11]
-        message_parsed["month"]         = message_int[13]
+        message_parsed["month"]         = message_int[13] + 1 # range is 0-11 in java
         message_parsed["year"]          = year_int
     
         print("MESSAGE 2 PARSED: ", message_parsed)
@@ -95,6 +96,12 @@ class DTrack():
         assert message123 == message1 + message2 + message3
 
         m2hash = self.parse_message2(message2)
+
+        dt_date = f"{m2hash['year']}-{m2hash['month']:02d}-{m2hash['dayofmonth']:02d}"
+        dt_time = f"{m2hash['hour']:02d}:{m2hash['minute']:02d}:{m2hash['second']:02d}"
+        
+        subprocess.check_call(['./set_dt.sh', dt_date, dt_time])
+        print(f"[INFO] Set Date and Time: {dt_date} {dt_time}")
 
         #message1 = self.receive_message()             # message 1
         #self.send_response(response = '1006051003E8') # response 1
