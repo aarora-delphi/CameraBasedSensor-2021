@@ -21,7 +21,7 @@ class DTrack():
         self.conn = None
         self.addr = None
         
-        self.offset = int(subprocess.check_output("./timezone.sh").strip()) # gets timezone diff in seconds from utc
+        self.offset = int(subprocess.check_output("./get_timezone.sh").strip()) # gets timezone diff in seconds from utc
 
         # set Track connection up
         if self.connect:

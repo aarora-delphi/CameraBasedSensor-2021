@@ -1,8 +1,12 @@
+### python-packages
 import time
 import socket 
 import json
 import re
 import subprocess
+
+### local-packages
+from timeout import timeout
 
 class DTrack():
 
@@ -86,39 +90,39 @@ class DTrack():
         self.send_response(response = '1006051003E8') # response 1
         self.send_response(response = '1006101003DD') # response 2
         self.send_response(response = '1006061003E7') # response 3
-       
-        message123 = self.receive_message()
+
+        try:
+            message123 = ""
+            message123 = self.receive_message()
+        except Exception as e:
+            print(f"[ERROR] {e}")
+
+        if len(message123) < 74:
+            print("[INFO] Aborting Sync")
+            return
+
         message1 = message123[:24]
         message2 = message123[24:-12]
         message3 = message123[-12:]
-        
-        print("MESSAGE123", message1, message2, message3)
+
+        print("[INFO] MESSAGE123", message1, message2, message3)
         assert message123 == message1 + message2 + message3
 
         m2hash = self.parse_message2(message2)
-
         dt_date = f"{m2hash['year']}-{m2hash['month']:02d}-{m2hash['dayofmonth']:02d}"
         dt_time = f"{m2hash['hour']:02d}:{m2hash['minute']:02d}:{m2hash['second']:02d}"
         
-        subprocess.check_call(['./set_dt.sh', dt_date, dt_time])
+        subprocess.check_call(['./set_datetime.sh', dt_date, dt_time])
         print(f"[INFO] Set Date and Time: {dt_date} {dt_time}")
-
-        #message1 = self.receive_message()             # message 1
-        #self.send_response(response = '1006051003E8') # response 1
-
-        #message2 = self.receive_message()             # message 2
-        #self.send_response(response = '1006101003DD') # response 2
-        
-        #message3 = self.receive_message()             # message 3
-        #self.send_response(response = '1006061003E7') # response 3
 
     def send_response(self, response):
         to_send = bytes.fromhex(response)
         self.conn.sendall(to_send)
-        print(f"SENT RESPONSE: {response}")
+        print(f"[INFO] SENT RESPONSE: {response}")
 
+    @timeout(60)    
     def receive_message(self):
-        print("RECEIVING MESSAGE...")
+        print("[INFO] RECEIVING MESSAGE...")
         total = ""
         while True:
             data = self.conn.recv(1)
@@ -126,7 +130,7 @@ class DTrack():
             if not data and total != "":
                 break
 
-        print(f"MESSAGE: {total}")
+        print(f"[INFO] MESSAGE: {total}")
         return total
 
 if __name__ == "__main__":

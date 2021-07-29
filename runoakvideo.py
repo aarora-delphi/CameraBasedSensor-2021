@@ -16,7 +16,7 @@ from find_intersect import intersection_of_polygons
 from runtrack import DTrack
 
 nnPath    = str((Path(__file__).parent / Path('./OAK_Course_Examples/models/OpenVINO_2021_2/mobilenet-ssd_openvino_2021.2_6shave.blob')).resolve().absolute())
-videoPath = str((Path(__file__).parent / Path('./OAK_Course_Examples/videos/video123-small.mp4')).resolve().absolute())
+videoPath = str((Path(__file__).parent / Path('./OAK_Course_Examples/videos/video123-small-10fps.mp4')).resolve().absolute())
 
 # MobilenetSSD label texts
 labelMap = ["background", "aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow",
