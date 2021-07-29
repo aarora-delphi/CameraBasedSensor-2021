@@ -146,3 +146,10 @@ class DTrack():
             self.conn.sendall(to_send)
             #server.sendto(to_send, ('255.255.255.255', 5000))
             print(f"message sent at time {datetime.now().strftime('%H:%M:%S.%f')[:-3]}")
+
+    def close_socket(self):
+        if self.s != None:
+            self.s.close()
+        if self.conn != None:
+            self.conn.close()
+        print("[INFO] Sockets Closed")

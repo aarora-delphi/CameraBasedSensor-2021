@@ -8,7 +8,7 @@ import subprocess
 ### local-packages
 from timeout import timeout
 
-class DTrack():
+class TrackSync():
 
     def __init__(self, name = "Track1", connect = True):
         self.name = name
@@ -82,7 +82,7 @@ class DTrack():
         message_parsed["month"]         = message_int[13] + 1 # range is 0-11 in java
         message_parsed["year"]          = year_int
     
-        print("MESSAGE 2 PARSED: ", message_parsed)
+        print("[INFO] MESSAGE 2 PARSED: ", message_parsed)
     
         return message_parsed
 
@@ -120,9 +120,9 @@ class DTrack():
         self.conn.sendall(to_send)
         print(f"[INFO] SENT RESPONSE: {response}")
 
-    @timeout(60)    
+    @timeout(2)    
     def receive_message(self):
-        print("[INFO] RECEIVING MESSAGE...")
+        print("[INFO] WAITING FOR MESSAGE...")
         total = ""
         while True:
             data = self.conn.recv(1)
@@ -134,5 +134,5 @@ class DTrack():
         return total
 
 if __name__ == "__main__":
-    dtrack = DTrack()
-    dtrack.close_socket()
+    strack = TrackSync()
+    strack.close_socket()

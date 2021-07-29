@@ -193,21 +193,19 @@ class Oak():
 if __name__ == "__main__":
     camera1 = Oak()
     track1 = DTrack(connect = True)
-
-    while True:
-        camera1.inference()
-        numCars = camera1.detect_intersections(show_display = True)
-        track1.log_car_detection(numCars)
-        
-        if cv2.waitKey(1) == ord('q'):
-            break    
     
+    while True:
+        try:
+            camera1.inference()
+            numCars = camera1.detect_intersections(show_display = True)
+            track1.log_car_detection(numCars)
+        
+            if cv2.waitKey(1) == ord('q'):
+                break 
+        
+        except KeyboardInterrupt:
+            print(f"[INFO] Keyboard Interrupt")
+            break  
 
-##################################
-#    camera1 = Oak()
-#
-#    while True:
-#        camera1.inference(show_display = True)
-#    
-#        if cv2.waitKey(1) == ord('q'):
-#            break
+    track1.close_socket()
+    

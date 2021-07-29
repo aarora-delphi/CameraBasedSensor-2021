@@ -195,39 +195,45 @@ with dai.Device(pipeline) as device:
         
 
     while should_run():
-        # Get image frames from camera or video file
-        read_correctly, frame = get_frame()
-        if not read_correctly:
-            break
+        try:
+            # Get image frames from camera or video file
+            read_correctly, frame = get_frame()
+            if not read_correctly:
+                break
 
-        if video:
-            #frame = cv2.resize(frame, (0, 0), fx = 0.4, fy = 0.4) 
-            # Prepare image frame from video for sending to device
-            img = dai.ImgFrame()
-            img.setData(to_planar(frame, (300, 300)))
-            img.setTimestamp(monotonic())
-            img.setWidth(300)
-            img.setHeight(300)
+            if video:
+                #frame = cv2.resize(frame, (0, 0), fx = 0.4, fy = 0.4) 
+                # Prepare image frame from video for sending to device
+                img = dai.ImgFrame()
+                img.setData(to_planar(frame, (300, 300)))
+                img.setTimestamp(monotonic())
+                img.setWidth(300)
+                img.setHeight(300)
             
-            # Use input queue to send video frame to device
-            qIn_Frame.send(img)
-        else:
-            in_Frame = qOut_Frame.tryGet()
+                # Use input queue to send video frame to device
+                qIn_Frame.send(img)
+            else:
+                in_Frame = qOut_Frame.tryGet()
 
-            if in_Frame is not None:
-                frame = in_Frame.getCvFrame()
+                if in_Frame is not None:
+                    frame = in_Frame.getCvFrame()
 
-        inDet = qDet.tryGet()
-        if inDet is not None:
-            detections = inDet.detections
-            counter += 1
+            inDet = qDet.tryGet()
+            if inDet is not None:
+                detections = inDet.detections
+                counter += 1
 
-            # if the frame is available, render detection data on frame and display.
-        if frame is not None:
-            displayFrame("", frame)
+                # if the frame is available, render detection data on frame and display.
+            if frame is not None:
+                displayFrame("", frame)
 
-        if cv2.waitKey(1) == ord('q'):
+            if cv2.waitKey(1) == ord('q'):
+                break
+
+        except KeyboardInterrupt:
+            print(f"[INFO] Keyboard Interrupt")
             break
-
-        
-
+    
+    if track:
+        track1.close_socket()
+ 
