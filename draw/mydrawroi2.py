@@ -34,9 +34,12 @@ class MyApp(Tk):
 
         self.cameralist = ["A","B","C"]
         self.camerapointer = 0
+        self.name = self.cameralist[self.camerapointer]
+        self.bboxhash = {}
         
         self.currentImage = {}
         self.set_view()
+        self.set_title()
         
         self.button_next = Button(self, text = "Next", command = self.next)
         self.button_next.pack(side=RIGHT, fill="both", expand=True)
@@ -55,26 +58,46 @@ class MyApp(Tk):
         self.c.bind('<Button-3>', self.on_right_click)
 
     def clear_all(self):
-        self.main.delete("all")
+        # self.main.delete("all")
+        self.clear_bbox()
         self.set_view()
         
     def set_title(self):
-        name = self.cameralist[self.camerapointer]
-        self.title(f"Camera {name}")
+        self.title(f"Camera {self.name}")
 
     def set_view(self):
-        name = self.cameralist[self.camerapointer]
-        self.load_imgfile(f'camera{name}.png')
+        self.main.delete("all")
+        self.load_imgfile(f'camera{self.name}.png')
+        self.set_bbox()
 
     def next(self):
-        self.camerapointer = self.camerapointer + 1 if self.camerapointer < len(self.cameralist) - 1 else 0        
+        self.camerapointer = self.camerapointer + 1 if self.camerapointer < len(self.cameralist) - 1 else 0  
+        self.name = self.cameralist[self.camerapointer]   
         self.set_view()
         self.set_title()
 
     def prev(self):
         self.camerapointer = self.camerapointer - 1 if self.camerapointer > 0 else len(self.cameralist) - 1 
+        self.name = self.cameralist[self.camerapointer]
         self.set_view()
         self.set_title()
+    
+    def store_bbox(self, bbox):
+        print("BBOX", bbox)
+    
+        if self.name in self.bboxhash:
+            self.bboxhash[self.name].append(bbox)
+        else:
+            self.bboxhash[self.name] = [bbox]
+    
+    def clear_bbox(self):
+        self.bboxhash[self.name] = []   
+    
+    def set_bbox(self):
+        if self.name in self.bboxhash:
+            for bbox in self.bboxhash[self.name]:
+                self.c.create_rectangle(bbox, outline="black", width = 3)
+            
 
     def load_imgfile(self, filename):        
         img = Image.open(filename)
@@ -110,6 +133,8 @@ class MyApp(Tk):
             values = roi.getdata() # <----------------------- pixel values
             print(roi.size, len(values))
             #print list(values)
+            
+            self.store_bbox(box)
 
     def on_right_click(self, event):        
         found = event.widget.find_all()
