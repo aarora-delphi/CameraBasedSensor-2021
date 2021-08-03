@@ -1,6 +1,8 @@
 from tkinter import *
 from PIL import Image, ImageTk
-import pickle
+import depthai as dai
+
+import pickle_util
 
 class ScrolledCanvas(Frame):
     def __init__(self, master, **kwargs):
@@ -33,12 +35,15 @@ class MyApp(Tk):
         #self.c = self.main.canv
         self.c = self.main
 
-        self.cameralist = ["A","B","C"]
+        #self.cameralist = ["A","B","C"]
+        self.cameralist = pickle_util.load("storage-oak/device_id.pb", error_return = ["A", "B", "C"])
+        print(self.cameralist)
+        
         self.camerapointer = 0
         self.name = self.cameralist[self.camerapointer]
         
         self.pickle_roi = "storage-oak/canvas_roi.pb"
-        self.bboxhash = self.load(self.pickle_roi)
+        self.bboxhash = pickle_util.load(self.pickle_roi, error_return = {})
         
         self.currentImage = {}
         self.set_view()
@@ -53,7 +58,6 @@ class MyApp(Tk):
         self.button_save.pack(side="top", fill="both", expand=True)
         self.button_clear = Button(self, text = "Clear", command = self.clear_all)
         self.button_clear.pack(side=LEFT, fill="both", expand=True)
-
 
         self.c.bind('<ButtonPress-1>', self.on_mouse_down)
         self.c.bind('<B1-Motion>', self.on_mouse_drag)
@@ -70,7 +74,7 @@ class MyApp(Tk):
 
     def set_view(self):
         self.main.delete("all")
-        self.load_imgfile(f'storage-oak/camera{self.name}.png')
+        self.load_imgfile(f'storage-oak/{self.name}.png')
         self.set_bbox()
 
     def next(self):
@@ -93,31 +97,18 @@ class MyApp(Tk):
         else:
             self.bboxhash[self.name] = [bbox]
         
-        self.save(self.pickle_roi, self.bboxhash)
+        pickle_util.save(self.pickle_roi, self.bboxhash)
     
     def clear_bbox(self):
-        self.bboxhash[self.name] = [] 
-        
-        # self.save(self.pickle_roi, self.bboxhash)  
+        self.bboxhash[self.name] = []  
     
     def set_bbox(self):
         if self.name in self.bboxhash:
             for bbox in self.bboxhash[self.name]:
-                self.c.create_rectangle(bbox, outline="black", width = 3)
+                self.c.create_rectangle(bbox, outline="black", width = 3)          
 
-    def save(self, file_name, obj):
-        with open(file_name, 'wb') as fobj:
-            pickle.dump(obj, fobj)
-
-    def load(self, file_name):
-        try:
-            with open(file_name, 'rb') as fobj:
-                return pickle.load(fobj)
-        except:
-            print(f"[INFO] Failed to Load {file_name}")
-            return {}            
-
-    def load_imgfile(self, filename):        
+    def load_imgfile(self, filename):
+        
         img = Image.open(filename)
         # img = img.convert('L')
         self.currentImage['data'] = img
@@ -128,6 +119,11 @@ class MyApp(Tk):
         self.c.create_image(0, 0, image=photo, anchor='nw', tags='img')
         self.c.config(scrollregion=self.c.bbox('all'))
         self.currentImage['photo'] = photo
+
+    def on_closing(self):
+        print("[INFO] Closing drawroi app")
+        pickle_util.save("storage-oak/drawroi_running.pb", False)
+        self.destroy()
 
     def on_mouse_down(self, event):        
         self.anchor = (event.widget.canvasx(event.x),
@@ -161,5 +157,13 @@ class MyApp(Tk):
                 event.widget.delete(iid)
 
 
+
+pickle_util.save("storage-oak/drawroi_running.pb", True)
 app =  MyApp()
-app.mainloop()
+app.protocol("WM_DELETE_WINDOW", app.on_closing)
+
+try:
+    app.mainloop()
+except KeyboardInterrupt:
+    print(f"[INFO] Keyboard Interrupt")
+    app.on_closing()

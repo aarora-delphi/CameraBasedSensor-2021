@@ -6,14 +6,20 @@ import depthai as dai
 import numpy as np
 import time
 from datetime import datetime
+import argparse
 
+import pickle_util
 from find_intersect import intersection_of_polygons
 from runtrack import DTrack
 
 class Oak():
 
-    def __init__(self, name = "OAK1"):
+    def __init__(self, name = "OAK1", deviceID = None):
         self.name = name
+        self.deviceID = deviceID
+        
+        self.drawroi_running = False
+        
         self.ROI = [[50, 50], [250, 50], [250, 250], [50, 250]] # sample ROI
         self.car_count = 0
         
@@ -135,6 +141,25 @@ class Oak():
             self.detections = inDet.detections
             self.counter += 1
 
+        self.store_frame() # stores frame for use in drawroi.py
+
+    def store_frame(self):
+        """
+            Stores frames for drawroi.py during specified intervals below
+        """
+        if self.counter % 450 == 0: # check every ~15 seconds if drawroi app is in use
+            result = pickle_util.load("storage-oak/drawroi_running.pb", error_return = False)
+            
+            if result == True and self.drawroi_running == False:
+                print("[INFO] drawroi app in use - saving frames")
+            elif result == False and self.drawroi_running == True:
+                print("[INFO] drawroi app closed - stopped saving frames")
+            
+            self.drawroi_running = result
+        
+        if self.drawroi_running:
+            if self.counter % 30 == 0: # save frame every ~1 second
+                cv2.imwrite(f"storage-oak/{self.deviceID}.png", self.frame)
     
     def detect_intersections(self, show_display = False):
         """
@@ -236,8 +261,16 @@ class Oak():
 
 #### testing below ####
 if __name__ == "__main__":
-    camera1 = Oak()
-    track1 = DTrack(connect = False)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-track', '--delphitrack', action="store_true", help="Send messages to track system")
+    args = parser.parse_args()
+    
+    oak_device_ids = [device_info.getMxId() for device_info in dai.Device.getAllAvailableDevices()]
+    pickle_util.save("storage-oak/device_id.pb", oak_device_ids)
+    assert len(oak_device_ids) != 0
+    
+    camera1 = Oak(deviceID = oak_device_ids[0]) # temporary, store a list of OAK objects instead
+    track1 = DTrack(connect = args.delphitrack) # only one instance needed
     
     while True:
         try:
