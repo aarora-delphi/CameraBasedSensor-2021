@@ -1,5 +1,6 @@
 from tkinter import *
 from PIL import Image, ImageTk
+import pickle
 
 class ScrolledCanvas(Frame):
     def __init__(self, master, **kwargs):
@@ -35,7 +36,9 @@ class MyApp(Tk):
         self.cameralist = ["A","B","C"]
         self.camerapointer = 0
         self.name = self.cameralist[self.camerapointer]
-        self.bboxhash = {}
+        
+        self.pickle_roi = "canvas_roi.pb"
+        self.bboxhash = self.load(self.pickle_roi)
         
         self.currentImage = {}
         self.set_view()
@@ -89,15 +92,30 @@ class MyApp(Tk):
             self.bboxhash[self.name].append(bbox)
         else:
             self.bboxhash[self.name] = [bbox]
+        
+        self.save(self.pickle_roi, self.bboxhash)
     
     def clear_bbox(self):
-        self.bboxhash[self.name] = []   
+        self.bboxhash[self.name] = [] 
+        
+        # self.save(self.pickle_roi, self.bboxhash)  
     
     def set_bbox(self):
         if self.name in self.bboxhash:
             for bbox in self.bboxhash[self.name]:
                 self.c.create_rectangle(bbox, outline="black", width = 3)
-            
+
+    def save(self, file_name, obj):
+        with open(file_name, 'wb') as fobj:
+            pickle.dump(obj, fobj)
+
+    def load(self, file_name):
+        try:
+            with open(file_name, 'rb') as fobj:
+                return pickle.load(fobj)
+        except:
+            print(f"[INFO] Failed to Load {file_name}")
+            return {}            
 
     def load_imgfile(self, filename):        
         img = Image.open(filename)
