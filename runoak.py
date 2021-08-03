@@ -103,8 +103,11 @@ class Oak():
         self.processFrame()
         
         if show_display:
-            cv2.imshow("debug", self.debugFrame)
-            cv2.imshow("rgb", self.frame)
+            cv2.imshow("debug", cv2.resize(self.debugFrame,None,fx=1.5, fy=1.5))
+            cv2.imshow("rgb", cv2.resize(self.frame,None,fx=1.5, fy=1.5))
+            
+            #cv2.imshow("debug", self.debugFrame)
+            #cv2.imshow("rgb", self.frame)
         
         #if self.car_count > 0:
         #    print(f"NUMCAR: {self.car_count}")
