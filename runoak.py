@@ -144,9 +144,9 @@ class Oak():
         self.processFrame()
         
         if show_display:
-            cv2.imshow("debug", cv2.resize(self.debugFrame,None,fx=1.35, fy=1.35))
+            cv2.imshow("debug", cv2.resize(self.debugFrame,None,fx=1.45, fy=1.45))
             #cv2.imshow("rgb", cv2.resize(self.frame,None,fx=1.5, fy=1.5))
-            cv2.imshow("video", cv2.resize(self.video,None,fx=0.75, fy=0.75)) # new
+            cv2.imshow("video", cv2.resize(self.video,None,fx=0.4, fy=0.4)) # new
             
             #cv2.imshow("debug", self.debugFrame)
             #cv2.imshow("rgb", self.frame)
@@ -237,7 +237,7 @@ class Oak():
 #### testing below ####
 if __name__ == "__main__":
     camera1 = Oak()
-    track1 = DTrack(connect = False)
+    track1 = DTrack(connect = True)
     
     while True:
         try:
