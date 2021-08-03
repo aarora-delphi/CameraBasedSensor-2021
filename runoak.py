@@ -237,7 +237,7 @@ class Oak():
 #### testing below ####
 if __name__ == "__main__":
     camera1 = Oak()
-    track1 = DTrack(connect = True)
+    track1 = DTrack(connect = False)
     
     while True:
         try:

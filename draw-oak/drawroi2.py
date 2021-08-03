@@ -31,7 +31,7 @@ class MyApp(Tk):
         self.c = self.main.canv
 
         self.currentImage = {}
-        self.load_imgfile('test.jpg')
+        self.load_imgfile('cameraA.png')
 
         self.c.bind('<ButtonPress-1>', self.on_mouse_down)
         self.c.bind('<B1-Motion>', self.on_mouse_drag)

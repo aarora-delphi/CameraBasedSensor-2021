@@ -27,7 +27,7 @@ class DTrack():
         if self.connect:
             self.set_track()
         
-        self.pickle_car_count = "car_count.pb"
+        self.pickle_car_count = "storage-oak/car_count.pb"
         # JSON Logging related variables
         self.min_frames = 5
         ###self.car_count = 0
