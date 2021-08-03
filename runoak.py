@@ -30,15 +30,15 @@ class Oak():
         self.counter = 0
         self.detections = []
         
+        self.video = np.zeros([300,300,3],dtype=np.uint8) # new
         self.frame = np.zeros([300,300,3],dtype=np.uint8)
         self.debugFrame = None
 
         self.pipeline = self.define_pipeline()
         self.device = dai.Device(self.pipeline)
-        self.qRgb, self.qDet = self.start_pipeline()
+        self.qVideo, self.qRgb, self.qDet = self.start_pipeline()
             
-    def define_pipeline(self):
-    
+    def old_define_pipeline(self):
         # Start defining a pipeline
         pipeline = dai.Pipeline()
 
@@ -53,7 +53,6 @@ class Oak():
         # detection results.
         nn = pipeline.createMobileNetDetectionNetwork()
         nn.setBlobPath(self.nnPath)
-
         nn.setConfidenceThreshold(0.7)
         nn.setNumInferenceThreads(2)
         nn.input.setBlocking(False)
@@ -71,6 +70,43 @@ class Oak():
         
         return pipeline
 
+    def define_pipeline(self):
+        # Create pipeline
+        pipeline = dai.Pipeline()
+
+        # Define sources and outputs
+        cam = pipeline.createColorCamera()
+        nn = pipeline.createMobileNetDetectionNetwork()
+
+        xoutVideo = pipeline.createXLinkOut() # new
+        xoutFrame = pipeline.createXLinkOut()
+        xoutNN = pipeline.createXLinkOut()
+
+        xoutVideo.setStreamName("video") # new
+        xoutFrame.setStreamName("rgb")
+        xoutNN.setStreamName("nn")
+
+        # Properties
+        cam.setPreviewKeepAspectRatio(True)
+        cam.setPreviewSize(300, 300)
+        cam.setInterleaved(False)
+        # available resolutions are THE_1080_P (default), THE_4_K, THE_12_MP
+        # cam.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
+		
+        # Define a neural network that will make predictions based on the source frames
+        nn.setBlobPath(self.nnPath)
+        nn.setConfidenceThreshold(0.7)
+        nn.setNumInferenceThreads(2)
+        nn.input.setBlocking(False)
+
+        # Linking
+        cam.video.link(xoutVideo.input) # new
+        cam.preview.link(xoutFrame.input)
+        cam.preview.link(nn.input)
+        nn.out.link(xoutNN.input)
+        
+        return pipeline
+
     def start_pipeline(self):
         print("[INFO] Starting OAK Pipeline...")
         # Start pipeline
@@ -78,15 +114,20 @@ class Oak():
 
         # Output queues will be used to get the rgb frames and nn data from the
         # output streams defined above.
+        qVideo = self.device.getOutputQueue(name="video", maxSize=4, blocking=False) # new
         qRgb = self.device.getOutputQueue(name="rgb", maxSize=4, blocking=False)
         qDet = self.device.getOutputQueue(name="nn", maxSize=4, blocking=False)
             
-        return (qRgb, qDet)
+        return (qVideo, qRgb, qDet)
             
     def inference(self, show_display = False):
+        inVideo = self.qVideo.tryGet() # new
         inRgb = self.qRgb.tryGet()
         inDet = self.qDet.tryGet()
 
+        if inVideo is not None: # new
+            self.video = inVideo.getCvFrame() # new
+        
         if inRgb is not None:
             self.frame = inRgb.getCvFrame()
 
@@ -103,8 +144,9 @@ class Oak():
         self.processFrame()
         
         if show_display:
-            cv2.imshow("debug", cv2.resize(self.debugFrame,None,fx=1.5, fy=1.5))
-            cv2.imshow("rgb", cv2.resize(self.frame,None,fx=1.5, fy=1.5))
+            cv2.imshow("debug", cv2.resize(self.debugFrame,None,fx=1.35, fy=1.35))
+            #cv2.imshow("rgb", cv2.resize(self.frame,None,fx=1.5, fy=1.5))
+            cv2.imshow("video", cv2.resize(self.video,None,fx=0.75, fy=0.75)) # new
             
             #cv2.imshow("debug", self.debugFrame)
             #cv2.imshow("rgb", self.frame)
@@ -195,7 +237,7 @@ class Oak():
 #### testing below ####
 if __name__ == "__main__":
     camera1 = Oak()
-    track1 = DTrack(connect = True)
+    track1 = DTrack(connect = False)
     
     while True:
         try:
