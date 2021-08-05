@@ -54,7 +54,7 @@ class MyApp(Tk):
         self.button_prev = Button(self, text = "Prev", command = self.prev)
         self.button_prev.pack(side=LEFT, fill="both", expand=True)
         
-        self.button_save = Button(self, text = "Save", command = self.clear_all)
+        self.button_save = Button(self, text = "")
         self.button_save.pack(side="top", fill="both", expand=True)
         self.button_clear = Button(self, text = "Clear", command = self.clear_all)
         self.button_clear.pack(side=LEFT, fill="both", expand=True)
@@ -97,6 +97,7 @@ class MyApp(Tk):
         else:
             self.bboxhash[self.name] = [bbox]
         
+        print("STORE", self.bboxhash[self.name])
         pickle_util.save(self.pickle_roi, self.bboxhash)
     
     def clear_bbox(self):

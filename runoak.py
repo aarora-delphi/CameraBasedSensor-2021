@@ -21,6 +21,7 @@ class Oak():
         self.drawroi_running = False
         
         self.ROI = [[50, 50], [250, 50], [250, 250], [50, 250]] # sample ROI
+        self.set_roi() # sets last saved ROI
         self.car_count = 0
         
         model_location = './OAK_Course_Examples/models/OpenVINO_2021_2/mobilenet-ssd_openvino_2021.2_6shave.blob'
@@ -141,25 +142,36 @@ class Oak():
             self.detections = inDet.detections
             self.counter += 1
 
-        self.store_frame() # stores frame for use in drawroi.py
+        self.check_drawroi() # stores frame for use in drawroi.py
 
-    def store_frame(self):
+    def check_drawroi(self):
         """
             Stores frames for drawroi.py during specified intervals below
         """
         if self.counter % 450 == 0: # check every ~15 seconds if drawroi app is in use
-            result = pickle_util.load("storage-oak/drawroi_running.pb", error_return = False)
+            is_running = pickle_util.load("storage-oak/drawroi_running.pb", error_return = False)
             
-            if result == True and self.drawroi_running == False:
+            if is_running == True and self.drawroi_running == False:
                 print("[INFO] drawroi app in use - saving frames")
-            elif result == False and self.drawroi_running == True:
+            elif is_running == False and self.drawroi_running == True:
                 print("[INFO] drawroi app closed - stopped saving frames")
             
-            self.drawroi_running = result
+            self.drawroi_running = is_running
         
         if self.drawroi_running:
-            if self.counter % 30 == 0: # save frame every ~1 second
+            if self.counter % 30 == 0: # perform action every ~1 second
                 cv2.imwrite(f"storage-oak/{self.deviceID}.png", self.frame)
+                self.set_roi()
+    
+    def set_roi(self):
+        """
+        Sets last saved ROI from drawroi
+        """
+        app_roi = pickle_util.load("storage-oak/canvas_roi.pb", error_return = {})
+        if self.deviceID in app_roi:
+            temp_roi = app_roi[self.deviceID][0] # take first entry
+            temp_roi = self.convert_tlbr_to_list(temp_roi)
+            self.ROI = temp_roi
     
     def detect_intersections(self, show_display = False):
         """
@@ -238,20 +250,27 @@ class Oak():
         normVals = np.full(len(bbox), frame.shape[0])
         normVals[::2] = frame.shape[1]
         return (np.clip(np.array(bbox), 0, 1) * normVals).astype(int)
+    
+    def convert_tlbr_to_list(self, box):
+        """
+        Takes (x1,y1,x2,y2) - top left bottom right bbox/roi format
+        Converts to list of points
+        """
+        point_list =  [ [box[0], box[1]], 
+                        [box[2], box[1]],
+                        [box[2], box[3]],
+                        [box[0], box[3]] 
+                      ]
         
+        return point_list
+        
+    
     def bbox_in_roi(self, bbox):
         """
         Transform BBOX to match ROI frame size and check if BBOX in ROI
         """
-    
-        # transform bbox to fit from (300x300) to (450, 800) frame size
-        mod_bbox = bbox
-        pt_mod_bbox = [ [mod_bbox[0], mod_bbox[1]], 
-                        [mod_bbox[2], mod_bbox[1]],
-                        [mod_bbox[2], mod_bbox[3]],
-                        [mod_bbox[0], mod_bbox[3]] 
-                      ]
         
+        pt_mod_bbox = self.convert_tlbr_to_list(bbox)
         try:
             in_roi = intersection_of_polygons(self.ROI, pt_mod_bbox)   
         except:
