@@ -54,7 +54,7 @@ class MyApp(Tk):
         self.button_prev = Button(self, text = "Prev", command = self.prev)
         self.button_prev.pack(side=LEFT, fill="both", expand=True)
         
-        self.button_save = Button(self, text = "")
+        self.button_save = Button(self, text = "Refresh", command = self.set_view)
         self.button_save.pack(side="top", fill="both", expand=True)
         self.button_clear = Button(self, text = "Clear", command = self.clear_all)
         self.button_clear.pack(side=LEFT, fill="both", expand=True)
@@ -92,10 +92,11 @@ class MyApp(Tk):
     def store_bbox(self, bbox):
         print("BBOX", bbox)
     
-        if self.name in self.bboxhash:
-            self.bboxhash[self.name].append(bbox)
-        else:
-            self.bboxhash[self.name] = [bbox]
+        self.bboxhash[self.name] = [bbox] # for one roi only
+        #if self.name in self.bboxhash:
+        #    self.bboxhash[self.name].append(bbox)
+        #else:
+        #    self.bboxhash[self.name] = [bbox]
         
         print("STORE", self.bboxhash[self.name])
         pickle_util.save(self.pickle_roi, self.bboxhash)
@@ -106,7 +107,7 @@ class MyApp(Tk):
     def set_bbox(self):
         if self.name in self.bboxhash:
             for bbox in self.bboxhash[self.name]:
-                self.c.create_rectangle(bbox, outline="black", width = 3)          
+                self.c.create_rectangle(bbox, outline="white", width = 3)          
 
     def load_imgfile(self, filename):
         
@@ -150,6 +151,7 @@ class MyApp(Tk):
             #print list(values)
             
             self.store_bbox(box)
+            self.set_view()
 
     def on_right_click(self, event):        
         found = event.widget.find_all()

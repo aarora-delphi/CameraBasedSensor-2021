@@ -184,12 +184,6 @@ class Oak():
             cv2.imshow("debug", cv2.resize(self.debugFrame,None,fx=1.45, fy=1.45))
             #cv2.imshow("rgb", cv2.resize(self.frame,None,fx=1.5, fy=1.5))
             cv2.imshow("video", cv2.resize(self.video,None,fx=0.4, fy=0.4)) # new
-            
-            #cv2.imshow("debug", self.debugFrame)
-            #cv2.imshow("rgb", self.frame)
-        
-        #if self.car_count > 0:
-        #    print(f"NUMCAR: {self.car_count}")
 
         return self.car_count 
         
@@ -288,14 +282,19 @@ if __name__ == "__main__":
     pickle_util.save("storage-oak/device_id.pb", oak_device_ids)
     assert len(oak_device_ids) != 0
     
-    camera1 = Oak(deviceID = oak_device_ids[0]) # temporary, store a list of OAK objects instead
+    camera_list = []
+    for device_id in oak_device_ids:
+        camera_list.append(Oak(deviceID = device_id))
+    
+    #camera1 = Oak(deviceID = oak_device_ids[0])
     track1 = DTrack(connect = args.delphitrack) # only one instance needed
     
     while True:
         try:
-            camera1.inference()
-            numCars = camera1.detect_intersections(show_display = True)
-            track1.log_car_detection(numCars)
+            for camera in camera_list:
+                camera.inference()
+                numCars = camera.detect_intersections(show_display = True)
+                track1.log_car_detection(numCars) # TODO: add vehicle_id
         
             if cv2.waitKey(1) == ord('q'):
                 break 
