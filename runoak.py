@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+### python-packages
 from pathlib import Path
 import cv2
 import depthai as dai
@@ -8,6 +9,7 @@ import time
 from datetime import datetime
 import argparse
 
+### local-packages
 import pickle_util
 from find_intersect import intersection_of_polygons
 from runtrack import DTrack
@@ -44,40 +46,12 @@ class Oak():
         self.pipeline = self.define_pipeline()
         self.device = dai.Device(self.pipeline)
         self.qVideo, self.qRgb, self.qDet = self.start_pipeline()
-            
-    def old_define_pipeline(self):
-        # Start defining a pipeline
-        pipeline = dai.Pipeline()
-
-        # Define a source - color camera
-        cam = pipeline.createColorCamera()
-        cam.setPreviewKeepAspectRatio(True)
-        cam.setPreviewSize(300, 300)
-        cam.setInterleaved(False)
-
-        # Define a neural network that will make predictions based on the source frames
-        # DetectionNetwork class produces ImgDetections message that carries parsed
-        # detection results.
-        nn = pipeline.createMobileNetDetectionNetwork()
-        nn.setBlobPath(self.nnPath)
-        nn.setConfidenceThreshold(0.7)
-        nn.setNumInferenceThreads(2)
-        nn.input.setBlocking(False)
-
-        cam.preview.link(nn.input)
-
-        # Create XlinkOut nodes
-        xoutFrame = pipeline.createXLinkOut()
-        xoutFrame.setStreamName("rgb")
-        cam.preview.link(xoutFrame.input)
-
-        xoutNN = pipeline.createXLinkOut()
-        xoutNN.setStreamName("nn")
-        nn.out.link(xoutNN.input)
-        
-        return pipeline
 
     def define_pipeline(self):
+        """
+            OAK camera requires a pipeline. Camera input is passed to the neural network.
+            Output is the NN bboxes + the 300x300 and 16x9 camera views
+        """
         # Create pipeline
         pipeline = dai.Pipeline()
 
@@ -115,6 +89,9 @@ class Oak():
         return pipeline
 
     def start_pipeline(self):
+        """
+            Output Queues used for requesting frame and detections
+        """
         print("[INFO] Starting OAK Pipeline...")
         # Start pipeline
         self.device.startPipeline()
@@ -128,6 +105,10 @@ class Oak():
         return (qVideo, qRgb, qDet)
             
     def inference(self, show_display = False):
+        """
+            Request request frames and detections
+            Check if drawroi.py is in use
+        """
         inVideo = self.qVideo.tryGet() # new
         inRgb = self.qRgb.tryGet()
         inDet = self.qDet.tryGet()
@@ -165,7 +146,7 @@ class Oak():
     
     def set_roi(self):
         """
-        Sets last saved ROI from drawroi
+            Sets last saved ROI from drawroi.py to self.ROI
         """
         app_roi = pickle_util.load("storage-oak/canvas_roi.pb", error_return = {})
         if self.deviceID in app_roi:
@@ -175,10 +156,11 @@ class Oak():
     
     def detect_intersections(self, show_display = False):
         """
-            Returns Debug Frame and Number of Detections in ROI
+            Creates Debug Frame and returns number of detections in ROI
+            show_display: bool - if true, shows debug and 16/9 view
         """
 
-        self.processFrame()
+        self.processFrame() # determines if bbox in ROI + creates debug frame
         
         if show_display:
             cv2.imshow("debug", cv2.resize(self.debugFrame,None,fx=1.45, fy=1.45))
@@ -188,15 +170,23 @@ class Oak():
         return self.car_count 
         
     def processFrame(self):
-    
+        """
+            Creates the debug frame
+        """
         frame = self.frame.copy()
-        frame = self.processFrameBBOX(frame)
-        frame = self.processFrameROI(frame)
-        frame = self.processFrameText(frame)
+        frame = self.processFrameBBOX(frame) # determines if bbox in ROI + adds BBOX to debug frame
+        frame = self.processFrameROI(frame) # adds ROI to debug frame
+        frame = self.processFrameText(frame) # adds text to debug frame
         
         self.debugFrame = frame
 
     def processFrameBBOX(self, frame):
+        """
+            Loops through OAK NN detections and determines if bbox in ROI
+            If in ROI, draws green bbox on frame, else draws red bbox on frame
+            frame: to-be debug frame
+            return: frame
+        """
         car_count = 0
         
         for detection in self.detections:
@@ -209,7 +199,7 @@ class Oak():
                 
                 in_roi = self.bbox_in_roi(bbox)
                 if in_roi:
-                    bbox_color = (0,255,0) # green
+                    bbox_color = (0,255,0) # green bbox on debug frame
                     car_count += 1
                 
                 cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), bbox_color, 2)
@@ -225,12 +215,22 @@ class Oak():
         return frame
         
     def processFrameROI(self, frame):
+        """
+            Draws ROI on frame
+            frame: to-be debug frame
+            return: frame
+        """
         # draw ROI
         cv2.polylines(frame, [np.asarray(self.ROI, np.int32).reshape((-1,1,2))], True, (255,255,255), 2)
         
         return frame
 
     def processFrameText(self, frame):
+        """
+            Adds NN fps and NUMCAR text to frame
+            frame: to-be debug frame
+            return: frame 
+        """
 		# show NN FPS
         cv2.putText(frame, "NN fps: {:.2f}".format(self.counter / (time.monotonic() - self.startTime)),
                                 (2, 20), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color=(255, 255, 255))
@@ -241,14 +241,21 @@ class Oak():
 
     # nn data (bounding box locations) are in <0..1> range - they need to be normalized with frame width/height
     def frameNorm(self, frame, bbox):
+        """
+            Normalizes NN bbox from <0..1> range relative to frame width/height
+            frame: to-be debug frame
+            bbox: (xmin,ymin,xmax,ymax)
+            returns: normalized points
+        """
         normVals = np.full(len(bbox), frame.shape[0])
         normVals[::2] = frame.shape[1]
         return (np.clip(np.array(bbox), 0, 1) * normVals).astype(int)
     
     def convert_tlbr_to_list(self, box):
         """
-        Takes (x1,y1,x2,y2) - top left bottom right bbox/roi format
-        Converts to list of points
+            Converts box to all points in a rectangle
+            box: (xmin,ymin,xmax,ymax) - top left bottom right bbox/roi format
+            return: rearranged list of points
         """
         point_list =  [ [box[0], box[1]], 
                         [box[2], box[1]],
@@ -261,7 +268,9 @@ class Oak():
     
     def bbox_in_roi(self, bbox):
         """
-        Transform BBOX to match ROI frame size and check if BBOX in ROI
+            Check if BBOX in ROI
+            bbox: list - [pt1, pt2, pt3, pt4] where pt# = [x,y]
+            return: bool - true if ROI and bbox intersect
         """
         
         pt_mod_bbox = self.convert_tlbr_to_list(bbox)

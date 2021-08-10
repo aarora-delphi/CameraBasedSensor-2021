@@ -38,6 +38,9 @@ class TrackSync():
                 self.close_socket()
     
     def close_socket(self):
+        """
+            Close the socket connection 's'
+        """
         if self.s != None:
             self.s.close()
         if self.conn != None:
@@ -45,6 +48,9 @@ class TrackSync():
         print("[INFO] Sockets Closed")
 
     def set_track(self):
+        """
+            Bind to Delphi Track sockets for communication
+        """
         print("[INFO] Searching for Delphi Track...")
         print(f"[INFO] Hostname: {socket.gethostname()}")
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -57,8 +63,9 @@ class TrackSync():
 
     def parse_message2(self, message):
         """
-        The Delphi Track system send 3 messages during the syncing process.
-        Message 2 contains the time and date information set on the track system.
+            The Delphi Track system send 3 messages during the syncing process.
+            Message 2 contains the time and date information set on the track system.
+            message: message 2 received from Delphi Track during syncing process
         """
         message_pair = re.findall('..?', message)
         message_bytes = []
@@ -87,6 +94,11 @@ class TrackSync():
         return message_parsed
 
     def sync_time(self):
+        """
+            Send 3 responses to Delphi Track
+            Parse the receive message 2
+            Set the date and time of local Zotac using message 2
+        """
         self.send_response(response = '1006051003E8') # response 1
         self.send_response(response = '1006101003DD') # response 2
         self.send_response(response = '1006061003E7') # response 3
@@ -116,12 +128,18 @@ class TrackSync():
         print(f"[INFO] Set Date and Time: {dt_date} {dt_time}")
 
     def send_response(self, response):
+        """
+            Send a response to Delphi Track
+        """
         to_send = bytes.fromhex(response)
         self.conn.sendall(to_send)
         print(f"[INFO] SENT RESPONSE: {response}")
 
     @timeout(2)    
     def receive_message(self):
+        """
+            Receive a message from Delphi Track
+        """
         print("[INFO] WAITING FOR MESSAGE...")
         total = ""
         while True:

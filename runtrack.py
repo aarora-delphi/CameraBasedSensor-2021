@@ -1,3 +1,4 @@
+### python-packages
 import time
 import socket 
 import json
@@ -40,10 +41,16 @@ class DTrack():
         self.prev = 0
 
     def save(self, file_name, obj):
+        """
+            Save object in pickle file
+        """
         with open(file_name, 'wb') as fobj:
             pickle.dump(obj, fobj)
 
     def load(self, file_name):
+        """
+            Load object from pickle file
+        """
         try:
             with open(file_name, 'rb') as fobj:
                 return pickle.load(fobj)
@@ -52,6 +59,9 @@ class DTrack():
             return 0
 
     def set_track(self):
+        """
+            Bind to Delphi Track sockets for communication
+        """
         print("[INFO] Searching for Delphi Track...")
         print(f"[INFO] Hostname: {socket.gethostname()}")
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -62,9 +72,9 @@ class DTrack():
         print("[INFO] Found Delphi Track - Connection from: " + str(self.addr))
 
     def __create_track_string(self, json_msg):
-        '''
+        """
             Creates bit string for Delphi Track system
-        '''
+        """
         loop_num = '001'
         status = ''
         timestamp = str(int(json_msg['timestamp']))
@@ -77,13 +87,13 @@ class DTrack():
         return to_send
 
     def log_car_detection(self, numCars):
-        '''
+        """
             Method sends json messages whenever a car is detected and enough frames have passed
             User can determine how many frames should pass before a message is sent by modifying
             the variable min_frames above
             Parameters:
             numCars: the number of cars detected in the frame by the model
-        '''
+        """
 
         # Gets current time in epoch from Jan 1 1970 in utc
         # s1 = int(time.time())
@@ -136,9 +146,9 @@ class DTrack():
             self.__send_json_message(json_message)
 
     def __send_json_message(self, msg):
-        '''
-            sends json message  to specified server 's'
-        '''
+        """
+            sends json message to specified server 's'
+        """
         if msg["status"] != "000":
             #data = json.dumps(msg)
             to_send = self.__create_track_string(msg)
@@ -148,6 +158,9 @@ class DTrack():
             print(f"message sent at time {datetime.now().strftime('%H:%M:%S.%f')[:-3]}")
 
     def close_socket(self):
+        """
+        Close the socket 's'
+        """
         if self.s != None:
             self.s.close()
         if self.conn != None:
