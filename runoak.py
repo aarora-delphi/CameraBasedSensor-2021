@@ -295,6 +295,7 @@ if __name__ == "__main__":
     
     camera_list = []
     for device_id in oak_device_ids:
+        print(f"DEVICE ID: {device_id}")
         camera_list.append(Oak(deviceID = device_id))
     
     #camera1 = Oak(deviceID = oak_device_ids[0])
