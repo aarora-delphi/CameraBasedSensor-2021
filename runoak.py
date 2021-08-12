@@ -72,7 +72,9 @@ class Oak():
         cam.setPreviewSize(300, 300)
         cam.setInterleaved(False)
         # available resolutions are THE_1080_P (default), THE_4_K, THE_12_MP
-        # cam.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
+        cam.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
+        # rotate camera 180 degrees
+        cam.setImageOrientation(dai.CameraImageOrientation.ROTATE_180_DEG)
 		
         # Define a neural network that will make predictions based on the source frames
         nn.setBlobPath(self.nnPath)
@@ -165,7 +167,7 @@ class Oak():
         if show_display:
             cv2.imshow(f"debug - {self.deviceID}", cv2.resize(self.debugFrame,None,fx=1.45, fy=1.45))
             #cv2.imshow("rgb - {self.deviceID}", cv2.resize(self.frame,None,fx=1.5, fy=1.5))
-            cv2.imshow(f"video - {self.deviceID}", cv2.resize(self.video,None,fx=0.4, fy=0.4)) # new
+            #cv2.imshow(f"video - {self.deviceID}", cv2.resize(self.video,None,fx=0.4, fy=0.4)) # new
 
         return self.car_count 
         
