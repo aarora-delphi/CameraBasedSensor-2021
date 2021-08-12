@@ -163,9 +163,9 @@ class Oak():
         self.processFrame() # determines if bbox in ROI + creates debug frame
         
         if show_display:
-            cv2.imshow("debug", cv2.resize(self.debugFrame,None,fx=1.45, fy=1.45))
-            #cv2.imshow("rgb", cv2.resize(self.frame,None,fx=1.5, fy=1.5))
-            cv2.imshow("video", cv2.resize(self.video,None,fx=0.4, fy=0.4)) # new
+            cv2.imshow(f"debug - {self.deviceID}", cv2.resize(self.debugFrame,None,fx=1.45, fy=1.45))
+            #cv2.imshow("rgb - {self.deviceID}", cv2.resize(self.frame,None,fx=1.5, fy=1.5))
+            cv2.imshow(f"video - {self.deviceID}", cv2.resize(self.video,None,fx=0.4, fy=0.4)) # new
 
         return self.car_count 
         
