@@ -8,56 +8,22 @@ from datetime import datetime, timezone
 import pytz
 import subprocess
 
-class DTrack():
+### local-packages
+import pickle_util
 
-    def __init__(self, name = "Track1", connect = True):
-        self.name = name
-        
-        # connect to track system or not
+class DConnect():
+    def __init__(self, connect = True):
         self.connect = connect
-        
         self.HOST = "0.0.0.0"
         self.PORT = 5000
+        
         self.s = None
         self.conn = None
         self.addr = None
         
-        self.offset = int(subprocess.check_output("./get_timezone.sh").strip()) # gets timezone diff in seconds from utc
-
-        # set Track connection up
         if self.connect:
             self.set_track()
-        
-        self.pickle_car_count = "storage-oak/car_count.pb"
-        # JSON Logging related variables
-        self.min_frames = 5
-        ###self.car_count = 0
-        self.car_count = self.load(self.pickle_car_count)
-        self.car_counts = deque([-1]*self.min_frames)
-        self.in_lane = False
-        self.out_lane = True
-        self.total_cars_count = 0
-        self.first = 0
-        self.prev = 0
-
-    def save(self, file_name, obj):
-        """
-            Save object in pickle file
-        """
-        with open(file_name, 'wb') as fobj:
-            pickle.dump(obj, fobj)
-
-    def load(self, file_name):
-        """
-            Load object from pickle file
-        """
-        try:
-            with open(file_name, 'rb') as fobj:
-                return pickle.load(fobj)
-        except:
-            print(f"[INFO] Failed to Load {file_name}")
-            return 0
-
+    
     def set_track(self):
         """
             Bind to Delphi Track sockets for communication
@@ -70,12 +36,90 @@ class DTrack():
         self.s.listen(1)
         self.conn, self.addr = self.s.accept()
         print("[INFO] Found Delphi Track - Connection from: " + str(self.addr))
+    
+    def get_conn(self):
+        """
+            Return the Delphi Track Sockets
+        """
+        return (self.s, self.conn, self.addr)
+    
+    def close_socket(self):
+        """
+        Close the socket 's'
+        """
+        if self.s != None:
+            self.s.close()
+        if self.conn != None:
+            self.conn.close()
+        print("[INFO] Sockets Closed")
+    
+
+class DTrack():
+
+    def __init__(self, name = '001', connect = (None, None, None)):
+        self.name = name
+        
+        # connect to track system or not
+        self.connect = connect != (None, None, None)
+        self.s = connect[0]
+        self.conn = connect[1]
+        self.addr = connect[2]
+        
+        self.offset = int(subprocess.check_output("./get_timezone.sh").strip()) # gets tz diff in seconds from utc
+
+        # set Track connection up
+        ###if self.connect:
+        ###    self.set_track()
+        
+        self.pickle_car_count = f"storage-oak/car_count_{self.name}.pb"
+        # JSON Logging related variables
+        self.min_frames = 5
+        ###self.car_count = 0
+        ###self.car_count = self.load(self.pickle_car_count)
+        self.car_count = pickle_util.load(self.pickle_car_count, error_return = 0)
+        self.car_counts = deque([-1]*self.min_frames)
+        self.in_lane = False
+        self.out_lane = True
+        self.total_cars_count = 0
+        self.first = 0
+        self.prev = 0
+
+    #def save(self, file_name, obj):
+    #    """
+    #        Save object in pickle file
+    #    """
+    #    with open(file_name, 'wb') as fobj:
+    #        pickle.dump(obj, fobj)
+
+    #def load(self, file_name):
+    #    """
+    #        Load object from pickle file
+    #    """
+    #    try:
+    #        with open(file_name, 'rb') as fobj:
+    #            return pickle.load(fobj)
+    #    except:
+    #        print(f"[INFO] Failed to Load {file_name}")
+    #        return 0
+
+    #def set_track(self):
+    #    """
+    #        Bind to Delphi Track sockets for communication
+    #    """
+    #    print("[INFO] Searching for Delphi Track...")
+    #    print(f"[INFO] Hostname: {socket.gethostname()}")
+    #    self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    #    self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    #    self.s.bind((self.HOST, self.PORT))
+    #    self.s.listen(1)
+    #    self.conn, self.addr = self.s.accept()
+    #    print("[INFO] Found Delphi Track - Connection from: " + str(self.addr))
 
     def __create_track_string(self, json_msg):
         """
             Creates bit string for Delphi Track system
         """
-        loop_num = '001'
+        loop_num = self.name # '001'
         status = ''
         timestamp = str(int(json_msg['timestamp']))
         vehicle_id = str(json_msg['vehicle_id']).zfill(5)
@@ -102,7 +146,7 @@ class DTrack():
         #s1 = int(time.time()) - 25200 # utc to pst time
 
         json_message = {
-                "camera_id": "N/A",
+                "camera_id": self.name,
                 "timestamp":s1,
                 "vehicle_id": self.car_count+1,
                 "status": "000"
@@ -123,7 +167,8 @@ class DTrack():
             if self.car_count >= 99999:
                 self.car_count = 0
 
-            self.save(self.pickle_car_count, self.car_count)
+            ###self.save(self.pickle_car_count, self.car_count)
+            pickle_util.save(self.pickle_car_count, self.car_count)
             
             print(json_message)
             print(self.__create_track_string(json_message))
@@ -157,12 +202,12 @@ class DTrack():
             #server.sendto(to_send, ('255.255.255.255', 5000))
             print(f"message sent at time {datetime.now().strftime('%H:%M:%S.%f')[:-3]}")
 
-    def close_socket(self):
-        """
-        Close the socket 's'
-        """
-        if self.s != None:
-            self.s.close()
-        if self.conn != None:
-            self.conn.close()
-        print("[INFO] Sockets Closed")
+    #def close_socket(self):
+    #    """
+    #    Close the socket 's'
+    #    """
+    #    if self.s != None:
+    #        self.s.close()
+    #    if self.conn != None:
+    #        self.conn.close()
+    #    print("[INFO] Sockets Closed")

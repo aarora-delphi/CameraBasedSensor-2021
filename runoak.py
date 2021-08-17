@@ -12,7 +12,7 @@ import argparse
 ### local-packages
 import pickle_util
 from find_intersect import intersection_of_polygons
-from runtrack import DTrack
+from runtrack import DTrack, DConnect
 
 class Oak():
 
@@ -298,15 +298,21 @@ if __name__ == "__main__":
         print(f"DEVICE ID: {device_id}")
         camera_list.append(Oak(deviceID = device_id))
     
+    dconn = DConnect(connect = args.delphitrack)
+    track_list = []
+    for n in range(1, len(oak_device_ids)+1):
+        loop_num = '{:03}'.format(n)
+        track_list.append(DTrack(name = loop_num, connect = dconn.get_conn()))
+    
     #camera1 = Oak(deviceID = oak_device_ids[0])
-    track1 = DTrack(connect = args.delphitrack) # only one instance needed
+    #track1 = DTrack(connect = args.delphitrack) # only one instance needed
     
     while True:
         try:
-            for camera in camera_list:
+            for (camera, track) in zip(camera_list, track_list):
                 camera.inference()
                 numCars = camera.detect_intersections(show_display = True)
-                track1.log_car_detection(numCars) # TODO: add vehicle_id
+                track.log_car_detection(numCars)
         
             if cv2.waitKey(1) == ord('q'):
                 break 
@@ -315,5 +321,6 @@ if __name__ == "__main__":
             print(f"[INFO] Keyboard Interrupt")
             break  
 
-    track1.close_socket()
     
+    #track1.close_socket()
+    dconn.close_socket()
