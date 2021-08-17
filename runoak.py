@@ -290,25 +290,19 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     oak_device_ids = [device_info.getMxId() for device_info in dai.Device.getAllAvailableDevices()]
-    print(f"[INFO] OAK Device IDs - {len(oak_device_ids)} - {oak_device_ids}")
+    print(f"[INFO] Found {len(oak_device_ids)} OAK DEVICES - {oak_device_ids}")
     pickle_util.save("storage-oak/device_id.pb", oak_device_ids)
     assert len(oak_device_ids) != 0
     
-    camera_list = []
-    for device_id in oak_device_ids:
-        print(f"DEVICE ID: {device_id}")
-        camera_list.append(Oak(deviceID = device_id))
-    
     dconn = DConnect(connect = args.delphitrack)
-    track_list = []
-    for n in range(1, len(oak_device_ids)+1):
-        loop_num = '{:03}'.format(n)
-        track_list.append(DTrack(name = loop_num, connect = dconn.get_conn()))
-    
-    camera_track_list = list(zip(camera_list, track_list))
-    
-    #camera1 = Oak(deviceID = oak_device_ids[0])
-    #track1 = DTrack(connect = args.delphitrack) # only one instance needed
+    camera_track_list = []
+        
+    for device_id in oak_device_ids:
+        print(f"[INFO] OAK DEVICE: {device_id}")
+        cam = Oak(deviceID = device_id)
+        station = pickle_util.load(f"storage-oak/station_{device_id}.pb", error_return = '001')
+        tck = DTrack(name = station, connect = dconn.get_conn())
+        camera_track_list.append((cam, tck))
     
     while True:
         try:
@@ -324,6 +318,4 @@ if __name__ == "__main__":
             print(f"[INFO] Keyboard Interrupt")
             break  
 
-    
-    #track1.close_socket()
     dconn.close_socket()

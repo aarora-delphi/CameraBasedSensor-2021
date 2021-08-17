@@ -1,4 +1,5 @@
 from tkinter import *
+import tkinter.messagebox
 from PIL import Image, ImageTk
 import depthai as dai
 
@@ -37,7 +38,7 @@ class MyApp(Tk):
 
         #self.cameralist = ["A","B","C"]
         self.cameralist = pickle_util.load("storage-oak/device_id.pb", error_return = ["A", "B", "C"])
-        print(self.cameralist)
+        print(f"[INFO] Camera List: {self.cameralist}")
         
         self.camerapointer = 0
         self.name = self.cameralist[self.camerapointer]
@@ -57,12 +58,44 @@ class MyApp(Tk):
         self.button_save = Button(self, text = "Refresh", command = self.set_view)
         self.button_save.pack(side="top", fill="both", expand=True)
         self.button_clear = Button(self, text = "Clear", command = self.clear_all)
-        self.button_clear.pack(side=LEFT, fill="both", expand=True)
-
+        self.button_clear.pack(side="top", fill="both", expand=True)
+        
         self.c.bind('<ButtonPress-1>', self.on_mouse_down)
         self.c.bind('<B1-Motion>', self.on_mouse_drag)
         self.c.bind('<ButtonRelease-1>', self.on_mouse_up)
         self.c.bind('<Button-3>', self.on_right_click)
+        
+        self.station_dict = {
+        '001':'L1: Menu (1)', 
+        '002':'L1: Greet (2)', 
+        '003':'L1: Cashier (3)', 
+        '004':'L1: Pickup (4)', 
+        '005':'L2: Menu (5)', 
+        '006':'L2: Greet (6)', 
+        '007':'L2: Cashier (7)', 
+        '008':'L2: Pickup (8)'
+        }
+        
+        self.station_dict_inv = {value:key for key, value in self.station_dict.items()} # gets inverse
+        self.station_choices = list(self.station_dict.values())
+        
+        self.station_var = StringVar(self)
+        self.station_load()
+        self.station = OptionMenu(self, self.station_var, *self.station_choices, command=self.station_save)
+        self.station.pack(side=LEFT, fill="both", expand=True)
+
+    def station_load(self):
+        loop_num = pickle_util.load(f"storage-oak/station_{self.name}.pb", error_return = '000')
+        if loop_num == '000':
+            self.station_var.set('Select Station')
+        else:
+            self.station_var.set(self.station_dict[loop_num])
+
+    def station_save(self, *args):
+        print(f"Station Selected for {self.name}: {self.station_var.get()}")
+        
+        loop_num = self.station_dict_inv[self.station_var.get()]
+        pickle_util.save(f"storage-oak/station_{self.name}.pb", loop_num)
 
     def clear_all(self):
         # self.main.delete("all")
@@ -82,23 +115,23 @@ class MyApp(Tk):
         self.name = self.cameralist[self.camerapointer]   
         self.set_view()
         self.set_title()
+        self.station_load()
 
     def prev(self):
         self.camerapointer = self.camerapointer - 1 if self.camerapointer > 0 else len(self.cameralist) - 1 
         self.name = self.cameralist[self.camerapointer]
         self.set_view()
         self.set_title()
+        self.station_load()
     
-    def store_bbox(self, bbox):
-        print("BBOX", bbox)
-    
+    def store_bbox(self, bbox):    
         self.bboxhash[self.name] = [bbox] # for one roi only
         #if self.name in self.bboxhash:
         #    self.bboxhash[self.name].append(bbox)
         #else:
         #    self.bboxhash[self.name] = [bbox]
         
-        print("STORE", self.bboxhash[self.name])
+        print("ROI STORE", self.bboxhash[self.name])
         pickle_util.save(self.pickle_roi, self.bboxhash)
     
     def clear_bbox(self):
@@ -123,9 +156,39 @@ class MyApp(Tk):
         self.currentImage['photo'] = photo
 
     def on_closing(self):
-        print("[INFO] Closing drawroi app")
-        pickle_util.save("storage-oak/drawroi_running.pb", False)
-        self.destroy()
+        sanity_ok = self.sanity_check()
+        if sanity_ok:
+            print("[INFO] Closing drawroi app")
+            pickle_util.save("storage-oak/drawroi_running.pb", False)
+            self.destroy()
+    
+    def sanity_check(self):
+        print("[INFO] Performing Sanity Check")
+        sanity_ok = True
+        error_str = ""
+        # check if ROI drawn on all cameras
+        for name in self.cameralist:
+            if self.bboxhash[name] == []:
+                error_str += f"[ERROR] No ROI on Camera {name}\n"
+                sanity_ok = False
+        
+        # check if Station is Unique
+        station_roundup = []
+        for name in self.cameralist:
+            loop_num = pickle_util.load(f"storage-oak/station_{name}.pb", error_return = '000')
+            if loop_num == '000':
+                error_str += f"[ERROR] No Station Selected on Camera {name}\n"
+                sanity_ok = False
+            elif loop_num in station_roundup:
+                error_str += f"[ERROR] Duplicate Station {self.station_dict[loop_num]} on Camera {name}\n"
+                sanity_ok = False
+            else:
+                station_roundup.append(loop_num)
+
+        if not sanity_ok:
+            tkinter.messagebox.showinfo("[ERROR]", error_str)
+
+        return sanity_ok
 
     def on_mouse_down(self, event):        
         self.anchor = (event.widget.canvasx(event.x),
@@ -147,8 +210,6 @@ class MyApp(Tk):
 
             roi = self.currentImage['data'].crop(box) # region of interest
             values = roi.getdata() # <----------------------- pixel values
-            print(roi.size, len(values))
-            #print list(values)
             
             self.store_bbox(box)
             self.set_view()

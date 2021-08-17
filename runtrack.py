@@ -45,7 +45,7 @@ class DConnect():
     
     def close_socket(self):
         """
-        Close the socket 's'
+            Close the socket 's'
         """
         if self.s != None:
             self.s.close()
@@ -84,6 +84,9 @@ class DTrack():
         self.first = 0
         self.prev = 0
 
+    def set_name(self, name):
+        self.name = name
+        
     #def save(self, file_name, obj):
     #    """
     #        Save object in pickle file
