@@ -290,6 +290,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     oak_device_ids = [device_info.getMxId() for device_info in dai.Device.getAllAvailableDevices()]
+    print(f"[INFO] OAK Device IDs - {len(oak_device_ids)} - {oak_device_ids}")
     pickle_util.save("storage-oak/device_id.pb", oak_device_ids)
     assert len(oak_device_ids) != 0
     
