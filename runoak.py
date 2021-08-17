@@ -305,7 +305,7 @@ if __name__ == "__main__":
         loop_num = '{:03}'.format(n)
         track_list.append(DTrack(name = loop_num, connect = dconn.get_conn()))
     
-    camera_track_list = zip(camera_list, track_list)
+    camera_track_list = list(zip(camera_list, track_list))
     
     #camera1 = Oak(deviceID = oak_device_ids[0])
     #track1 = DTrack(connect = args.delphitrack) # only one instance needed
