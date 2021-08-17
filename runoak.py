@@ -305,12 +305,14 @@ if __name__ == "__main__":
         loop_num = '{:03}'.format(n)
         track_list.append(DTrack(name = loop_num, connect = dconn.get_conn()))
     
+    camera_track_list = zip(camera_list, track_list)
+    
     #camera1 = Oak(deviceID = oak_device_ids[0])
     #track1 = DTrack(connect = args.delphitrack) # only one instance needed
     
     while True:
         try:
-            for (camera, track) in zip(camera_list, track_list):
+            for (camera, track) in camera_track_list:
                 camera.inference()
                 numCars = camera.detect_intersections(show_display = True)
                 track.log_car_detection(numCars)
