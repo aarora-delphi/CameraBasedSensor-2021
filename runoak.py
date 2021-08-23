@@ -59,11 +59,11 @@ class Oak():
         cam = pipeline.createColorCamera()
         nn = pipeline.createMobileNetDetectionNetwork()
 
-        xoutVideo = pipeline.createXLinkOut() # new
+        ### xoutVideo = pipeline.createXLinkOut() # new
         xoutFrame = pipeline.createXLinkOut()
         xoutNN = pipeline.createXLinkOut()
 
-        xoutVideo.setStreamName("video") # new
+        ### xoutVideo.setStreamName("video") # new
         xoutFrame.setStreamName("rgb")
         xoutNN.setStreamName("nn")
 
@@ -83,7 +83,7 @@ class Oak():
         nn.input.setBlocking(False)
 
         # Linking
-        cam.video.link(xoutVideo.input) # new
+        ### cam.video.link(xoutVideo.input) # new
         cam.preview.link(xoutFrame.input)
         cam.preview.link(nn.input)
         nn.out.link(xoutNN.input)
@@ -100,7 +100,7 @@ class Oak():
 
         # Output queues will be used to get the rgb frames and nn data from the
         # output streams defined above.
-        qVideo = self.device.getOutputQueue(name="video", maxSize=4, blocking=False) # new
+        qVideo = None ### self.device.getOutputQueue(name="video", maxSize=4, blocking=False) # new
         qRgb = self.device.getOutputQueue(name="rgb", maxSize=4, blocking=False)
         qDet = self.device.getOutputQueue(name="nn", maxSize=4, blocking=False)
             
@@ -111,12 +111,12 @@ class Oak():
             Request request frames and detections
             Check if drawroi.py is in use
         """
-        inVideo = self.qVideo.tryGet() # new
+        ###inVideo = self.qVideo.tryGet() # new
         inRgb = self.qRgb.tryGet()
         inDet = self.qDet.tryGet()
 
-        if inVideo is not None: # new
-            self.video = inVideo.getCvFrame() # new
+        ###if inVideo is not None: # new
+        ###    self.video = inVideo.getCvFrame() # new
         
         if inRgb is not None:
             self.frame = inRgb.getCvFrame()
@@ -165,7 +165,7 @@ class Oak():
         self.processFrame() # determines if bbox in ROI + creates debug frame
         
         if show_display:
-            cv2.imshow(f"debug - {self.deviceID}", cv2.resize(self.debugFrame,None,fx=1.45, fy=1.45))
+            cv2.imshow(f"debug - {self.deviceID}", self.debugFrame) #cv2.resize(self.debugFrame,None,fx=1.45, fy=1.45))
             #cv2.imshow("rgb - {self.deviceID}", cv2.resize(self.frame,None,fx=1.5, fy=1.5))
             #cv2.imshow(f"video - {self.deviceID}", cv2.resize(self.video,None,fx=0.4, fy=0.4)) # new
 
@@ -222,8 +222,9 @@ class Oak():
             frame: to-be debug frame
             return: frame
         """
+        artifact_color = (0,0,0)
         # draw ROI
-        cv2.polylines(frame, [np.asarray(self.ROI, np.int32).reshape((-1,1,2))], True, (255,255,255), 2)
+        cv2.polylines(frame, [np.asarray(self.ROI, np.int32).reshape((-1,1,2))], True, artifact_color, 2)
         
         return frame
 
@@ -233,11 +234,12 @@ class Oak():
             frame: to-be debug frame
             return: frame 
         """
-		# show NN FPS
+        artifact_color = (0,0,0)
+	# show NN FPS
         cv2.putText(frame, "NN fps: {:.2f}".format(self.counter / (time.monotonic() - self.startTime)),
-                                (2, 20), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color=(255, 255, 255))
+                                (2, 20), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color = artifact_color)
 
-        cv2.putText(frame, "NUMCAR: {}".format(self.car_count), (2, 40), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color=(255, 255, 255))
+        cv2.putText(frame, "NUMCAR: {}".format(self.car_count), (2, 40), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color = artifact_color)
 
         return frame
 
