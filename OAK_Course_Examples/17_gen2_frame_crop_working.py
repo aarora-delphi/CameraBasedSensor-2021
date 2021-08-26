@@ -82,7 +82,6 @@ cam.preview.link(manip_crop.inputImage)
 
 manip_view = pipeline.create(dai.node.ImageManip)
 manip_view.initialConfig.setResize(640, 360)
-#manip_view.initialConfig.setResize(533, 300)
 manip_view.initialConfig.setFrameType(dai.ImgFrame.Type.BGR888p)
 cam.preview.link(manip_view.inputImage)
 
