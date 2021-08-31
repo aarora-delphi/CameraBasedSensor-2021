@@ -269,7 +269,7 @@ class Oak():
             bbox_color = (0,0,255) # red
             
             # address bbox with correct label
-            if self.labelMap[detection.label] in ["car", "motorbike", "person"]:
+            if self.labelMap[detection.label] in ["car", "motorbike"]:
                 bbox = self.frameNorm(frame, (detection.xmin, detection.ymin, detection.xmax, detection.ymax))        
                 
                 in_roi = self.bbox_in_roi(bbox)
@@ -384,7 +384,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     if args.video == True:
-       args.video = './OAK_Course_Examples/videos/video123-small-10fps.mp4' 
+       #args.video = './OAK_Course_Examples/videos/video123-small-10fps.mp4'
+       args.video = './OAK_Course_Examples/videos/video08312021.mp4' 
     
     oak_device_ids = [device_info.getMxId() for device_info in dai.Device.getAllAvailableDevices()]
     print(f"[INFO] Found {len(oak_device_ids)} OAK DEVICES - {oak_device_ids}")
