@@ -58,17 +58,8 @@ class DTrack():
 
     def __init__(self, name = '001', connect = (None, None, None)):
         self.name = name
-        
-        # set to not connect
-        if self.name == '000' or self.name == '255':
-            connect = (None, None, None)
-            print(f'[INFO] Track Messaging Disabled for Station {self.name}')
-        
-        # connect to track system or not
-        self.connect = connect != (None, None, None)
-        self.s = connect[0]
-        self.conn = connect[1]
-        self.addr = connect[2]
+        self.resend_message = None
+        self.set_connect(connect)
         
         self.offset = int(subprocess.check_output("./get_timezone.sh").strip()) # gets tz diff in seconds from utc
         
@@ -85,6 +76,24 @@ class DTrack():
 
     def set_name(self, name):
         self.name = name
+    
+    def set_connect(self, connect):
+        # set to not connect
+        if self.name == '000' or self.name == '255':
+            connect = (None, None, None)
+            print(f'[INFO] Track Messaging Disabled for Station {self.name}')
+        
+        # connect to track system or not
+        self.connect = connect != (None, None, None)
+        self.s = connect[0]
+        self.conn = connect[1]
+        self.addr = connect[2]
+        
+        # resend saved message from past failed attempt
+        if self.resend_message != None:
+            self.__send_json_message(self.resend_message)
+            print(f'[INFO] Resent Saved Message at Station {self.name}')
+            self.resend_message = None
 
     def __create_track_string(self, json_msg):
         """
@@ -148,15 +157,19 @@ class DTrack():
             self.in_lane = True
             self.out_lane = False
         
-        if self.connect:
-            self.__send_json_message(json_message)
+        self.__send_json_message(json_message)
 
     def __send_json_message(self, msg):
         """
             sends json message to specified server 's'
         """
-        if msg["status"] != "000":
+        if self.connect and msg["status"] != "000":
             to_send = self.__create_track_string(msg)
-            self.conn.sendall(to_send)
-            print(f"message sent at time {datetime.now().strftime('%H:%M:%S.%f')[:-3]}")
+            try:
+                self.conn.sendall(to_send)
+                print(f"message sent at time {datetime.now().strftime('%H:%M:%S.%f')[:-3]}")
+            except BrokenPipeError:
+                print(f'[INFO] Broken Pipe Error on Station {self.name} - Storing Message')
+                self.resend_message = msg
+                raise BrokenPipeError 
 

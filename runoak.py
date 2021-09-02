@@ -279,6 +279,14 @@ class Oak():
             
         return in_roi
 
+
+### 9 - 2 - 2021
+def reconnect_track(camera_track_list):
+    dconn.close_socket()
+    dconn = DConnect(connect = args.delphitrack)
+    for i in range(len(camera_track_list)):
+        camera_track_list[i][1] = camera_track_list[i][1].set_connect(dconn.get_conn())
+
 #### testing below ####
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -298,7 +306,7 @@ if __name__ == "__main__":
         cam = Oak(deviceID = device_id)
         station = pickle_util.load(f"storage-oak/station_{device_id}.pb", error_return = '255')
         tck = DTrack(name = station, connect = dconn.get_conn())
-        camera_track_list.append((cam, tck))
+        camera_track_list.append([cam, tck])
     
     while True:
         try:
@@ -312,6 +320,11 @@ if __name__ == "__main__":
         
         except KeyboardInterrupt:
             print(f"[INFO] Keyboard Interrupt")
-            break  
+            break 
+        
+        except BrokenPipeError:
+            print("[INFO] Lost Connection to Track")
+            reconnect_track(camera_track_list)
+            
 
     dconn.close_socket()
