@@ -66,6 +66,7 @@ class MyApp(Tk):
         self.c.bind('<Button-3>', self.on_right_click)
         
         self.station_dict = {
+        '000':'Not In Use (0)',
         '001':'L1: Menu (1)', 
         '002':'L1: Greet (2)', 
         '003':'L1: Cashier (3)', 
@@ -85,8 +86,8 @@ class MyApp(Tk):
         self.station.pack(side=LEFT, fill="both", expand=True)
 
     def station_load(self):
-        loop_num = pickle_util.load(f"storage-oak/station_{self.name}.pb", error_return = '000')
-        if loop_num == '000':
+        loop_num = pickle_util.load(f"storage-oak/station_{self.name}.pb", error_return = '255')
+        if loop_num == '255':
             self.station_var.set('Select Station')
         else:
             self.station_var.set(self.station_dict[loop_num])
@@ -175,11 +176,11 @@ class MyApp(Tk):
         # check if Station is Unique
         station_roundup = []
         for name in self.cameralist:
-            loop_num = pickle_util.load(f"storage-oak/station_{name}.pb", error_return = '000')
-            if loop_num == '000':
+            loop_num = pickle_util.load(f"storage-oak/station_{name}.pb", error_return = '255')
+            if loop_num == '255':
                 error_str += f"[ERROR] No Station Selected on Camera {name}\n"
                 sanity_ok = False
-            elif loop_num in station_roundup:
+            elif loop_num in station_roundup and loop_num != '000':
                 error_str += f"[ERROR] Duplicate Station {self.station_dict[loop_num]} on Camera {name}\n"
                 sanity_ok = False
             else:

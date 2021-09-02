@@ -296,7 +296,7 @@ if __name__ == "__main__":
     for device_id in oak_device_ids:
         print(f"[INFO] OAK DEVICE: {device_id}")
         cam = Oak(deviceID = device_id)
-        station = pickle_util.load(f"storage-oak/station_{device_id}.pb", error_return = '001')
+        station = pickle_util.load(f"storage-oak/station_{device_id}.pb", error_return = '255')
         tck = DTrack(name = station, connect = dconn.get_conn())
         camera_track_list.append((cam, tck))
     

@@ -59,6 +59,11 @@ class DTrack():
     def __init__(self, name = '001', connect = (None, None, None)):
         self.name = name
         
+        # set to not connect
+        if self.name == '000' or self.name == '255':
+            connect = (None, None, None)
+            print(f'[INFO] Track Messaging Disabled for Station {self.name}')
+        
         # connect to track system or not
         self.connect = connect != (None, None, None)
         self.s = connect[0]
@@ -66,16 +71,10 @@ class DTrack():
         self.addr = connect[2]
         
         self.offset = int(subprocess.check_output("./get_timezone.sh").strip()) # gets tz diff in seconds from utc
-
-        # set Track connection up
-        ###if self.connect:
-        ###    self.set_track()
         
         self.pickle_car_count = f"storage-oak/car_count_{self.name}.pb"
         # JSON Logging related variables
         self.min_frames = 5
-        ###self.car_count = 0
-        ###self.car_count = self.load(self.pickle_car_count)
         self.car_count = pickle_util.load(self.pickle_car_count, error_return = 0)
         self.car_counts = deque([-1]*self.min_frames)
         self.in_lane = False
@@ -86,43 +85,12 @@ class DTrack():
 
     def set_name(self, name):
         self.name = name
-        
-    #def save(self, file_name, obj):
-    #    """
-    #        Save object in pickle file
-    #    """
-    #    with open(file_name, 'wb') as fobj:
-    #        pickle.dump(obj, fobj)
-
-    #def load(self, file_name):
-    #    """
-    #        Load object from pickle file
-    #    """
-    #    try:
-    #        with open(file_name, 'rb') as fobj:
-    #            return pickle.load(fobj)
-    #    except:
-    #        print(f"[INFO] Failed to Load {file_name}")
-    #        return 0
-
-    #def set_track(self):
-    #    """
-    #        Bind to Delphi Track sockets for communication
-    #    """
-    #    print("[INFO] Searching for Delphi Track...")
-    #    print(f"[INFO] Hostname: {socket.gethostname()}")
-    #    self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    #    self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    #    self.s.bind((self.HOST, self.PORT))
-    #    self.s.listen(1)
-    #    self.conn, self.addr = self.s.accept()
-    #    print("[INFO] Found Delphi Track - Connection from: " + str(self.addr))
 
     def __create_track_string(self, json_msg):
         """
             Creates bit string for Delphi Track system
         """
-        loop_num = self.name # '001'
+        loop_num = self.name 
         status = ''
         timestamp = str(int(json_msg['timestamp']))
         vehicle_id = str(json_msg['vehicle_id']).zfill(5)
@@ -141,12 +109,7 @@ class DTrack():
             Parameters:
             numCars: the number of cars detected in the frame by the model
         """
-
-        # Gets current time in epoch from Jan 1 1970 in utc
-        # s1 = int(time.time())
-
         s1 = int(time.time()) + self.offset # epoch time + timezone difference in seconds 
-        #s1 = int(time.time()) - 25200 # utc to pst time
 
         json_message = {
                 "camera_id": self.name,
@@ -170,15 +133,12 @@ class DTrack():
             if self.car_count >= 99999:
                 self.car_count = 0
 
-            ###self.save(self.pickle_car_count, self.car_count)
             pickle_util.save(self.pickle_car_count, self.car_count)
             
             print(json_message)
             print(self.__create_track_string(json_message))
             self.out_lane = True
             self.in_lane = False
-            #with open('log.txt', 'a') as file:
-            #    file.write(json.dumps(json_message))
 
         elif self.car_counts == (deque([1]*self.min_frames)) and self.out_lane:
             #Car entered ROI
@@ -187,8 +147,6 @@ class DTrack():
             print(self.__create_track_string(json_message))
             self.in_lane = True
             self.out_lane = False
-            #with open('log.txt', 'a') as file:
-            #    file.write(json.dumps(json_message))
         
         if self.connect:
             self.__send_json_message(json_message)
@@ -198,19 +156,7 @@ class DTrack():
             sends json message to specified server 's'
         """
         if msg["status"] != "000":
-            #data = json.dumps(msg)
             to_send = self.__create_track_string(msg)
-            #s.sendall(bytes(data,encoding="utf-8"))
             self.conn.sendall(to_send)
-            #server.sendto(to_send, ('255.255.255.255', 5000))
             print(f"message sent at time {datetime.now().strftime('%H:%M:%S.%f')[:-3]}")
 
-    #def close_socket(self):
-    #    """
-    #    Close the socket 's'
-    #    """
-    #    if self.s != None:
-    #        self.s.close()
-    #    if self.conn != None:
-    #        self.conn.close()
-    #    print("[INFO] Sockets Closed")

@@ -14,8 +14,9 @@ import imutils
 import pickle_util
 from find_intersect import intersection_of_polygons
 from runtrack import DTrack, DConnect
+from runoak import Oak
 
-class Oak():
+class OakSim():
 
     def __init__(self, name = "OAK1", deviceID = None, save_record = None, play_video = None):
         self.name = name
@@ -398,7 +399,7 @@ if __name__ == "__main__":
         
     for device_id in oak_device_ids:
         print(f"[INFO] OAK DEVICE: {device_id}")
-        cam = Oak(deviceID = device_id, save_record = args.record, play_video = args.video)
+        cam = OakSim(deviceID = device_id, save_record = args.record, play_video = args.video)
         station = pickle_util.load(f"storage-oak/station_{device_id}.pb", error_return = '001')
         tck = DTrack(name = station, connect = dconn.get_conn())
         camera_track_list.append((cam, tck))
