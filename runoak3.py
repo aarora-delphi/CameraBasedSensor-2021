@@ -50,7 +50,8 @@ class Oak():
         self.debugFrame = None
 
         self.pipeline = self.define_pipeline()
-        self.device = dai.Device(self.pipeline)
+        found, device_info = dai.Device.getDeviceByMxId(self.deviceID)
+        self.device = dai.Device(self.pipeline, device_info)
         self.qVideo, self.qRgb, self.qDet, self.qIn_Frame = self.start_pipeline()
         
         if self.save_video != None:

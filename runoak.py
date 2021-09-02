@@ -30,7 +30,7 @@ class Oak():
         self.nnPath = str((Path(__file__).parent / Path(model_location)).resolve().absolute())
 
         # MobilenetSSD class labels
-        self.labelMap = ["background", "aeroplane", "bicycle", "bird", "boat", 
+        self.labelMap = ["background", "aeroplane", "bicycle", "bird", "boat", \
                     "bottle", "bus", "car", "cat", "chair", "cow", \
                     "diningtable", "dog", "horse", "motorbike", "person", \
                     "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
@@ -39,13 +39,14 @@ class Oak():
         self.counter = 0
         self.detections = []
         
-        self.video = np.zeros([300,300,3],dtype=np.uint8) # new
         self.frame = np.zeros([300,300,3],dtype=np.uint8)
         self.debugFrame = None
+        ### self.video = np.zeros([300,300,3],dtype=np.uint8) # new
 
         self.pipeline = self.define_pipeline()
-        self.device = dai.Device(self.pipeline)
-        self.qVideo, self.qRgb, self.qDet = self.start_pipeline()
+        found, device_info = dai.Device.getDeviceByMxId(self.deviceID)
+        self.device = dai.Device(self.pipeline, device_info)
+        self.qRgb, self.qDet, self.qVideo = self.start_pipeline()
 
     def define_pipeline(self):
         """
@@ -59,13 +60,13 @@ class Oak():
         cam = pipeline.createColorCamera()
         nn = pipeline.createMobileNetDetectionNetwork()
 
-        ### xoutVideo = pipeline.createXLinkOut() # new
         xoutFrame = pipeline.createXLinkOut()
         xoutNN = pipeline.createXLinkOut()
+        ### xoutVideo = pipeline.createXLinkOut() # new
 
-        ### xoutVideo.setStreamName("video") # new
         xoutFrame.setStreamName("rgb")
         xoutNN.setStreamName("nn")
+        ### xoutVideo.setStreamName("video") # new
 
         # Properties
         cam.setPreviewKeepAspectRatio(True)
@@ -83,10 +84,10 @@ class Oak():
         nn.input.setBlocking(False)
 
         # Linking
-        ### cam.video.link(xoutVideo.input) # new
         cam.preview.link(xoutFrame.input)
         cam.preview.link(nn.input)
         nn.out.link(xoutNN.input)
+        ### cam.video.link(xoutVideo.input) # new
         
         return pipeline
 
@@ -98,25 +99,21 @@ class Oak():
         # Start pipeline
         self.device.startPipeline()
 
-        # Output queues will be used to get the rgb frames and nn data from the
-        # output streams defined above.
-        qVideo = None ### self.device.getOutputQueue(name="video", maxSize=4, blocking=False) # new
+        # Output queues get the rgb frames and nn data from the defined output streams.
         qRgb = self.device.getOutputQueue(name="rgb", maxSize=4, blocking=False)
         qDet = self.device.getOutputQueue(name="nn", maxSize=4, blocking=False)
+        qVideo = None ### self.device.getOutputQueue(name="video", maxSize=4, blocking=False) # new
             
-        return (qVideo, qRgb, qDet)
+        return (qRgb, qDet, qVideo)
             
     def inference(self, show_display = False):
         """
             Request request frames and detections
             Check if drawroi.py is in use
         """
-        ###inVideo = self.qVideo.tryGet() # new
         inRgb = self.qRgb.tryGet()
         inDet = self.qDet.tryGet()
-
-        ###if inVideo is not None: # new
-        ###    self.video = inVideo.getCvFrame() # new
+        ### inVideo = self.qVideo.tryGet() # new
         
         if inRgb is not None:
             self.frame = inRgb.getCvFrame()
@@ -124,6 +121,9 @@ class Oak():
         if inDet is not None:
             self.detections = inDet.detections
             self.counter += 1
+
+        ### if inVideo is not None: # new
+        ###     self.video = inVideo.getCvFrame() # new
 
         self.check_drawroi() # stores frame for use in drawroi.py
 
@@ -167,7 +167,7 @@ class Oak():
         if show_display:
             cv2.imshow(f"debug - {self.deviceID}", self.debugFrame) #cv2.resize(self.debugFrame,None,fx=1.45, fy=1.45))
             #cv2.imshow("rgb - {self.deviceID}", cv2.resize(self.frame,None,fx=1.5, fy=1.5))
-            #cv2.imshow(f"video - {self.deviceID}", cv2.resize(self.video,None,fx=0.4, fy=0.4)) # new
+            ### cv2.imshow(f"video - {self.deviceID}", cv2.resize(self.video,None,fx=0.4, fy=0.4)) # new
 
         return self.car_count 
         
@@ -196,7 +196,7 @@ class Oak():
             bbox_color = (0,0,255) # red
             
             # address bbox with correct label
-            if self.labelMap[detection.label] in ["car", "motorbike", "person"]:
+            if self.labelMap[detection.label] in ["car", "motorbike"]:
                 bbox = self.frameNorm(frame, (detection.xmin, detection.ymin, detection.xmax, detection.ymax))        
                 
                 in_roi = self.bbox_in_roi(bbox)
@@ -209,37 +209,31 @@ class Oak():
                     cv2.FONT_HERSHEY_TRIPLEX, 0.5, bbox_color)
                 cv2.putText(frame, f"{int(detection.confidence * 100)}%", (bbox[0] + 10, bbox[1] + 40), \
                     cv2.FONT_HERSHEY_TRIPLEX, 0.5, bbox_color)
-                
-                #print(f"{'1 ROI' if in_roi else '0 ROI'} {self.labelMap[detection.label]} {datetime.now().strftime('%H:%M:%S.%f')[:-3]}")
         
         self.car_count = car_count
         
         return frame
         
-    def processFrameROI(self, frame):
+    def processFrameROI(self, frame, color = (255,0,0)):
         """
             Draws ROI on frame
             frame: to-be debug frame
             return: frame
         """
-        artifact_color = (0,0,0)
-        # draw ROI
-        cv2.polylines(frame, [np.asarray(self.ROI, np.int32).reshape((-1,1,2))], True, artifact_color, 2)
+        cv2.polylines(frame, [np.asarray(self.ROI, np.int32).reshape((-1,1,2))], True, color, 2)
         
         return frame
 
-    def processFrameText(self, frame):
+    def processFrameText(self, frame, color = (255,0,0)):
         """
             Adds NN fps and NUMCAR text to frame
             frame: to-be debug frame
             return: frame 
         """
-        artifact_color = (0,0,0)
-	# show NN FPS
         cv2.putText(frame, "NN fps: {:.2f}".format(self.counter / (time.monotonic() - self.startTime)),
-                                (2, 20), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color = artifact_color)
+                                (2, 20), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color = color)
 
-        cv2.putText(frame, "NUMCAR: {}".format(self.car_count), (2, 40), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color = artifact_color)
+        cv2.putText(frame, "NUMCAR: {}".format(self.car_count), (2, 40), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color = color)
 
         return frame
 
