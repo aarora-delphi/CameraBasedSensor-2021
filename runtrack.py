@@ -10,6 +10,7 @@ import subprocess
 
 ### local-packages
 import pickle_util
+from logger import *
 
 class DConnect():
     def __init__(self, connect = True):
@@ -28,14 +29,14 @@ class DConnect():
         """
             Bind to Delphi Track sockets for communication
         """
-        print("[INFO] Searching for Delphi Track...")
-        print(f"[INFO] Hostname: {socket.gethostname()}")
+        log.info("Searching for Delphi Track...")
+        log.info(f"Hostname: {socket.gethostname()}")
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.s.bind((self.HOST, self.PORT))
         self.s.listen(1)
         self.conn, self.addr = self.s.accept()
-        print("[INFO] Found Delphi Track - Connection from: " + str(self.addr))
+        log.info("Found Delphi Track - Connection from: " + str(self.addr))
     
     def get_conn(self):
         """
@@ -51,7 +52,7 @@ class DConnect():
             self.s.close()
         if self.conn != None:
             self.conn.close()
-        print("[INFO] Sockets Closed")
+        log.info("Sockets Closed")
     
 
 class DTrack():
@@ -81,7 +82,7 @@ class DTrack():
         # set to not connect
         if self.name == '000' or self.name == '255':
             connect = (None, None, None)
-            print(f'[INFO] Track Messaging Disabled for Station {self.name}')
+            log.info(f'Track Messaging Disabled for Station {self.name}')
         
         # connect to track system or not
         self.connect = connect != (None, None, None)
@@ -92,7 +93,7 @@ class DTrack():
         # resend saved message from past failed attempt
         if self.resend_message != None:
             self.__send_json_message(self.resend_message)
-            print(f'[INFO] Resent Saved Message at Station {self.name}')
+            log.info(f'Resent Saved Message at Station {self.name}')
             self.resend_message = None
 
     def __create_track_string(self, json_msg):
@@ -169,7 +170,7 @@ class DTrack():
                 self.conn.sendall(to_send)
                 print(f"message sent at time {datetime.now().strftime('%H:%M:%S.%f')[:-3]}")
             except (BrokenPipeError, ConnectionResetError) as e:
-                print(f'[ERROR] {e} on Station {self.name} - Storing Message')
+                log.error(f'{e} on Station {self.name} - Storing Message')
                 self.resend_message = msg
                 raise BrokenPipeError 
 

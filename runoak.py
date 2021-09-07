@@ -13,6 +13,7 @@ import argparse
 import pickle_util
 from find_intersect import intersection_of_polygons
 from runtrack import DTrack, DConnect
+from logger import *
 
 class Oak():
 
@@ -95,7 +96,7 @@ class Oak():
         """
             Output Queues used for requesting frame and detections
         """
-        print("[INFO] Starting OAK Pipeline...")
+        log.info("Starting OAK Pipeline...")
         # Start pipeline
         self.device.startPipeline()
 
@@ -135,9 +136,9 @@ class Oak():
             is_running = pickle_util.load("storage-oak/drawroi_running.pb", error_return = False)
             
             if is_running == True and self.drawroi_running == False:
-                print("[INFO] drawroi app in use - saving frames")
+                log.info("drawroi app in use - saving frames")
             elif is_running == False and self.drawroi_running == True:
-                print("[INFO] drawroi app closed - stopped saving frames")
+                log.info("drawroi app closed - stopped saving frames")
             
             self.drawroi_running = is_running
         
@@ -284,7 +285,7 @@ def getOakDeviceIds():
     deviceIds = lambda : [device_info.getMxId() for device_info in dai.Device.getAllAvailableDevices()]
     oak_device_ids = deviceIds()
     while '<error>' in oak_device_ids:
-        print('[INFO] Error retrieving OAK Device - Trying Again')
+        log.error('Unable to Retrieve OAK Device - Trying Again')
         oak_device_ids = deviceIds()
     return oak_device_ids
 
@@ -295,7 +296,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     oak_device_ids = getOakDeviceIds()
-    print(f"[INFO] Found {len(oak_device_ids)} OAK DEVICES - {oak_device_ids}")
+    log.info(f"Found {len(oak_device_ids)} OAK DEVICES - {oak_device_ids}")
     pickle_util.save("storage-oak/device_id.pb", oak_device_ids)
     assert len(oak_device_ids) != 0
     
@@ -303,7 +304,7 @@ if __name__ == "__main__":
     camera_track_list = []
         
     for device_id in oak_device_ids:
-        print(f"[INFO] OAK DEVICE: {device_id}")
+        log.info(f"OAK DEVICE: {device_id}")
         cam = Oak(deviceID = device_id)
         station = pickle_util.load(f"storage-oak/station_{device_id}.pb", error_return = '255')
         tck = DTrack(name = station, connect = dconn.get_conn())
@@ -320,14 +321,18 @@ if __name__ == "__main__":
                 break 
         
         except KeyboardInterrupt:
-            print(f"[INFO] Keyboard Interrupt")
+            log.info(f"Keyboard Interrupt")
             break 
         
         except BrokenPipeError:
-            print("[INFO] Lost Connection to Track")
+            log.error("Lost Connection to Track")
             dconn.close_socket()
             dconn = DConnect(connect = args.delphitrack)
             for i in range(len(camera_track_list)):
                 camera_track_list[i][1].set_connect(dconn.get_conn()) # reset track connection
+        
+        except RuntimeError as e:
+            log.exception(f"Runtime Error") # TODO - resolve Runtime Errors ex. OAK is disconnected
+            break
 
     dconn.close_socket()

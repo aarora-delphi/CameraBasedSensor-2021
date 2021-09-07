@@ -7,6 +7,7 @@ import subprocess
 
 ### local-packages
 from timeout import timeout
+from logger import *
 
 class TrackSync():
 
@@ -28,13 +29,13 @@ class TrackSync():
                 self.set_track()
                 self.sync_time()
             except KeyboardInterrupt:
-                print(f"[INFO] Keyboard Interrupt")
+                log.info(f"Keyboard Interrupt")
                 self.close_socket()
             except BrokenPipeError:
-                print(f"[INFO] Broken Pipe")
+                log.error(f"Broken Pipe")
                 self.close_socket()
             except ConnectionResetError:
-                print(f"[INFO] Connection Reset")
+                log.error(f"Connection Reset")
                 self.close_socket()
     
     def close_socket(self):
@@ -45,21 +46,21 @@ class TrackSync():
             self.s.close()
         if self.conn != None:
             self.conn.close()
-        print("[INFO] Sockets Closed")
+        log.info("Sockets Closed")
 
     def set_track(self):
         """
             Bind to Delphi Track sockets for communication
         """
-        print("[INFO] Searching for Delphi Track...")
-        print(f"[INFO] Hostname: {socket.gethostname()}")
+        log.info("Searching for Delphi Track...")
+        log.info(f"Hostname: {socket.gethostname()}")
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         with self.s:
             self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.s.bind((self.HOST, self.PORT))
             self.s.listen(1)
             self.conn, self.addr = self.s.accept()
-            print("[INFO] Found Delphi Track - Connection from: " + str(self.addr))
+            log.info("Found Delphi Track - Connection from: " + str(self.addr))
 
     def parse_message2(self, message):
         """
@@ -89,7 +90,7 @@ class TrackSync():
         message_parsed["month"]         = message_int[13] + 1 # range is 0-11 in java
         message_parsed["year"]          = year_int
     
-        print("[INFO] MESSAGE 2 PARSED: ", message_parsed)
+        log.info("MESSAGE 2 PARSED: ", message_parsed)
     
         return message_parsed
 
@@ -107,17 +108,17 @@ class TrackSync():
             message123 = ""
             message123 = self.receive_message()
         except Exception as e:
-            print(f"[ERROR] {e}")
+            log.exception(f"{e}")
 
         if len(message123) < 74:
-            print("[INFO] Aborting Sync")
+            log.info("Aborting Sync")
             return
 
         message1 = message123[:24]
         message2 = message123[24:-12]
         message3 = message123[-12:]
 
-        print("[INFO] MESSAGE123", message1, message2, message3)
+        log.info(f"MESSAGE123 - {message1} {message2} {message3}")
         assert message123 == message1 + message2 + message3
 
         m2hash = self.parse_message2(message2)
@@ -125,7 +126,7 @@ class TrackSync():
         dt_time = f"{m2hash['hour']:02d}:{m2hash['minute']:02d}:{m2hash['second']:02d}"
         
         subprocess.check_call(['./set_datetime.sh', dt_date, dt_time])
-        print(f"[INFO] Set Date and Time: {dt_date} {dt_time}")
+        log.info(f"Set Date and Time: {dt_date} {dt_time}")
 
     def send_response(self, response):
         """
@@ -133,14 +134,14 @@ class TrackSync():
         """
         to_send = bytes.fromhex(response)
         self.conn.sendall(to_send)
-        print(f"[INFO] SENT RESPONSE: {response}")
+        log.info(f"SENT RESPONSE: {response}")
 
     @timeout(2)    
     def receive_message(self):
         """
             Receive a message from Delphi Track
         """
-        print("[INFO] WAITING FOR MESSAGE...")
+        log.info("WAITING FOR MESSAGE...")
         total = ""
         while True:
             data = self.conn.recv(1)
@@ -148,7 +149,7 @@ class TrackSync():
             if not data and total != "":
                 break
 
-        print(f"[INFO] MESSAGE: {total}")
+        log.info(f"MESSAGE: {total}")
         return total
 
 if __name__ == "__main__":

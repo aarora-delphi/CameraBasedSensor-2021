@@ -1,9 +1,12 @@
+### python-packages
 from tkinter import *
 import tkinter.messagebox
 from PIL import Image, ImageTk
 import depthai as dai
 
+### local-packages
 import pickle_util
+from logger import *
 
 class ScrolledCanvas(Frame):
     def __init__(self, master, **kwargs):
@@ -31,14 +34,10 @@ class MyApp(Tk):
 
         self.main = Canvas(self, width=300, height=300, bg = "white", cursor="cross")
         self.main.pack(side="top", fill="both", expand=True)
-        #self.main = ScrolledCanvas(self)
-        #self.main.grid(row=0, column=0, sticky='nsew')
-        #self.c = self.main.canv
         self.c = self.main
 
-        #self.cameralist = ["A","B","C"]
         self.cameralist = pickle_util.load("storage-oak/device_id.pb", error_return = ["A", "B", "C"])
-        print(f"[INFO] Camera List: {self.cameralist}")
+        log.info(f"Camera List: {self.cameralist}")
         
         self.camerapointer = 0
         self.name = self.cameralist[self.camerapointer]
@@ -93,7 +92,7 @@ class MyApp(Tk):
             self.station_var.set(self.station_dict[loop_num])
 
     def station_save(self, *args):
-        print(f"Station Selected for {self.name}: {self.station_var.get()}")
+        log.info(f"Station Selected for {self.name}: {self.station_var.get()}")
         
         loop_num = self.station_dict_inv[self.station_var.get()]
         pickle_util.save(f"storage-oak/station_{self.name}.pb", loop_num)
@@ -132,7 +131,7 @@ class MyApp(Tk):
         #else:
         #    self.bboxhash[self.name] = [bbox]
         
-        print("ROI STORE", self.bboxhash[self.name])
+        log.info(f"{self.name} ROI Store - {self.bboxhash[self.name]}")
         pickle_util.save(self.pickle_roi, self.bboxhash)
     
     def clear_bbox(self):
@@ -146,7 +145,6 @@ class MyApp(Tk):
     def load_imgfile(self, filename):
         
         img = Image.open(filename)
-        # img = img.convert('L')
         self.currentImage['data'] = img
 
         photo = ImageTk.PhotoImage(img)
@@ -159,18 +157,18 @@ class MyApp(Tk):
     def on_closing(self):
         sanity_ok = self.sanity_check()
         if sanity_ok:
-            print("[INFO] Closing drawroi app")
+            log.info("Closing drawroi app")
             pickle_util.save("storage-oak/drawroi_running.pb", False)
             self.destroy()
     
     def sanity_check(self):
-        print("[INFO] Performing Sanity Check")
+        log.info("Performing Sanity Check")
         sanity_ok = True
         error_str = ""
         # check if ROI drawn on all cameras
         for name in self.cameralist:
             if self.bboxhash[name] == []:
-                error_str += f"[ERROR] No ROI on Camera {name}\n"
+                error_str += f"No ROI on Camera {name}\n"
                 sanity_ok = False
         
         # check if Station is Unique
@@ -178,16 +176,17 @@ class MyApp(Tk):
         for name in self.cameralist:
             loop_num = pickle_util.load(f"storage-oak/station_{name}.pb", error_return = '255')
             if loop_num == '255':
-                error_str += f"[ERROR] No Station Selected on Camera {name}\n"
+                error_str += f"No Station Selected on Camera {name}\n"
                 sanity_ok = False
             elif loop_num in station_roundup and loop_num != '000':
-                error_str += f"[ERROR] Duplicate Station {self.station_dict[loop_num]} on Camera {name}\n"
+                error_str += f"Duplicate Station {self.station_dict[loop_num]} on Camera {name}\n"
                 sanity_ok = False
             else:
                 station_roundup.append(loop_num)
 
         if not sanity_ok:
             tkinter.messagebox.showinfo("[ERROR]", error_str)
+            log.error(error_str)
 
         return sanity_ok
 
@@ -222,7 +221,6 @@ class MyApp(Tk):
                 event.widget.delete(iid)
 
 
-
 pickle_util.save("storage-oak/drawroi_running.pb", True)
 app =  MyApp()
 app.protocol("WM_DELETE_WINDOW", app.on_closing)
@@ -230,5 +228,5 @@ app.protocol("WM_DELETE_WINDOW", app.on_closing)
 try:
     app.mainloop()
 except KeyboardInterrupt:
-    print(f"[INFO] Keyboard Interrupt")
+    log.info(f"Keyboard Interrupt")
     app.on_closing()
