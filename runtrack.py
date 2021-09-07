@@ -168,8 +168,8 @@ class DTrack():
             try:
                 self.conn.sendall(to_send)
                 print(f"message sent at time {datetime.now().strftime('%H:%M:%S.%f')[:-3]}")
-            except BrokenPipeError:
-                print(f'[INFO] Broken Pipe Error on Station {self.name} - Storing Message')
+            except (BrokenPipeError, ConnectionResetError) as e:
+                print(f'[ERROR] {e} on Station {self.name} - Storing Message')
                 self.resend_message = msg
                 raise BrokenPipeError 
 

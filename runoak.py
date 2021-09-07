@@ -280,12 +280,13 @@ class Oak():
         return in_roi
 
 
-### 9 - 2 - 2021
-def reconnect_track(camera_track_list):
-    dconn.close_socket()
-    dconn = DConnect(connect = args.delphitrack)
-    for i in range(len(camera_track_list)):
-        camera_track_list[i][1] = camera_track_list[i][1].set_connect(dconn.get_conn())
+def getOakDeviceIds():
+    deviceIds = lambda : [device_info.getMxId() for device_info in dai.Device.getAllAvailableDevices()]
+    oak_device_ids = deviceIds()
+    while '<error>' in oak_device_ids:
+        print('[INFO] Error retrieving OAK Device - Trying Again')
+        oak_device_ids = deviceIds()
+    return oak_device_ids
 
 #### testing below ####
 if __name__ == "__main__":
@@ -293,7 +294,7 @@ if __name__ == "__main__":
     parser.add_argument('-track', '--delphitrack', action="store_true", help="Send messages to track system")
     args = parser.parse_args()
     
-    oak_device_ids = [device_info.getMxId() for device_info in dai.Device.getAllAvailableDevices()]
+    oak_device_ids = getOakDeviceIds()
     print(f"[INFO] Found {len(oak_device_ids)} OAK DEVICES - {oak_device_ids}")
     pickle_util.save("storage-oak/device_id.pb", oak_device_ids)
     assert len(oak_device_ids) != 0
@@ -324,7 +325,9 @@ if __name__ == "__main__":
         
         except BrokenPipeError:
             print("[INFO] Lost Connection to Track")
-            reconnect_track(camera_track_list)
-            
+            dconn.close_socket()
+            dconn = DConnect(connect = args.delphitrack)
+            for i in range(len(camera_track_list)):
+                camera_track_list[i][1].set_connect(dconn.get_conn()) # reset track connection
 
     dconn.close_socket()
