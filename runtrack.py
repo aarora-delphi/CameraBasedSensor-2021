@@ -132,7 +132,7 @@ class DTrack():
         json_message = {
                 "camera_id": self.name,
                 "timestamp":s1,
-                "vehicle_id": 0 ###self.car_count+1,
+                "vehicle_id": 0, ###self.car_count+1,
                 "status": "000"
         }
 
