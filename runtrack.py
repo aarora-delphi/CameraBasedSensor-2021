@@ -63,17 +63,25 @@ class DTrack():
         self.set_connect(connect)
         
         self.offset = int(subprocess.check_output("./get_timezone.sh").strip()) # gets tz diff in seconds from utc
+        self.buffer_file = f"storage-oak/buffer_position.pb"
         
-        self.pickle_car_count = f"storage-oak/car_count_{self.name}.pb"
         # JSON Logging related variables
         self.min_frames = 5
-        self.car_count = pickle_util.load(self.pickle_car_count, error_return = 0)
+        ###self.pickle_car_count = f"storage-oak/car_count_{self.name}.pb"
+        ###self.car_count = pickle_util.load(self.pickle_car_count, error_return = 0)
         self.car_counts = deque([-1]*self.min_frames)
         self.in_lane = False
         self.out_lane = True
         self.total_cars_count = 0
         self.first = 0
         self.prev = 0
+
+    def get_buffer_position(self):
+        buffer_position = pickle_util.load(self.buffer_file, error_return = 0) + 1
+        if buffer_position > 99999:
+            buffer_position = 1
+        pickle_util.save(self.buffer_file, buffer_position)
+        return buffer_position
 
     def set_name(self, name):
         self.name = name
@@ -91,7 +99,7 @@ class DTrack():
         self.addr = connect[2]
         
         # resend saved message from past failed attempt
-        if self.resend_message != None:
+        if self.connect and self.resend_message != None:
             self.__send_json_message(self.resend_message)
             log.info(f'Resent Saved Message at Station {self.name}')
             self.resend_message = None
@@ -124,7 +132,7 @@ class DTrack():
         json_message = {
                 "camera_id": self.name,
                 "timestamp":s1,
-                "vehicle_id": self.car_count+1,
+                "vehicle_id": 0 ###self.car_count+1,
                 "status": "000"
         }
 
@@ -138,39 +146,39 @@ class DTrack():
         if self.car_counts == (deque([0]*self.min_frames)) and self.in_lane:
             #Car left ROI
             json_message["status"] = "002"
-            self.car_count += 1
-
-            if self.car_count >= 99999:
-                self.car_count = 0
-
-            pickle_util.save(self.pickle_car_count, self.car_count)
             
-            print(json_message)
-            print(self.__create_track_string(json_message))
+            ###self.car_count += 1
+            ###if self.car_count >= 99999:
+            ###    self.car_count = 0
+            ###pickle_util.save(self.pickle_car_count, self.car_count)
+            
             self.out_lane = True
             self.in_lane = False
 
         elif self.car_counts == (deque([1]*self.min_frames)) and self.out_lane:
             #Car entered ROI
             json_message["status"] = "001"
-            print(json_message)
-            print(self.__create_track_string(json_message))
             self.in_lane = True
             self.out_lane = False
+            
+        if self.connect and json_message["status"] != "000":
+            json_message["vehicle_id"] = self.get_buffer_position()
+            self.__send_json_message(json_message)
         
-        self.__send_json_message(json_message)
+        if json_message["status"] != "000":
+            print(json_message)
+            print(self.__create_track_string(json_message))
 
     def __send_json_message(self, msg):
         """
             sends json message to specified server 's'
         """
-        if self.connect and msg["status"] != "000":
-            to_send = self.__create_track_string(msg)
-            try:
-                self.conn.sendall(to_send)
-                print(f"message sent at time {datetime.now().strftime('%H:%M:%S.%f')[:-3]}")
-            except (BrokenPipeError, ConnectionResetError) as e:
-                log.error(f'{e} on Station {self.name} - Storing Message')
-                self.resend_message = msg
-                raise BrokenPipeError 
+        to_send = self.__create_track_string(msg)
+        try:
+            self.conn.sendall(to_send)
+            print(f"message sent at time {datetime.now().strftime('%H:%M:%S.%f')[:-3]}")
+        except (BrokenPipeError, ConnectionResetError) as e:
+            log.error(f'{e} on Station {self.name} - Storing Message')
+            self.resend_message = msg
+            raise BrokenPipeError 
 
