@@ -18,11 +18,12 @@ from runoak import Oak
 
 class OakSim():
 
-    def __init__(self, name = "OAK1", deviceID = None, save_record = None, play_video = None):
+    def __init__(self, name = "OAK1", deviceID = None, save_record = None, play_video = None, speed = 1):
         self.name = name
         self.deviceID = deviceID
         self.save_video = save_record
         self.play_record = play_video
+        self.speed = int(speed)
         
         if self.play_record != None:
             self.play_record = str((Path(__file__).parent / Path(self.play_record)).resolve().absolute())
@@ -160,7 +161,8 @@ class OakSim():
         """
         if self.play_record != None:
             if self.cap.isOpened():
-                read_correctly, record_frame = self.cap.read()
+                for i in range(self.speed):
+                    read_correctly, record_frame = self.cap.read()
                 if read_correctly:
                     self.video = record_frame
                     record_height, record_width, _ = record_frame.shape
@@ -173,7 +175,8 @@ class OakSim():
             
                     # Use input queue to send video frame to device
                     self.qIn_Frame.send(img)
-                         
+                else:
+                    raise EOFError
         
         inVideo = self.qVideo.tryGet() # new
         inRgb = self.qRgb.tryGet()
@@ -297,7 +300,7 @@ class OakSim():
             frame: to-be debug frame
             return: frame
         """
-        artifact_color = (0,0,0)
+        artifact_color = (255,0,0)
         # draw ROI
         cv2.polylines(frame, [np.asarray(self.ROI, np.int32).reshape((-1,1,2))], True, artifact_color, 2)
         
@@ -309,7 +312,7 @@ class OakSim():
             frame: to-be debug frame
             return: frame 
         """
-        artifact_color = (0,0,0)
+        artifact_color = (255,0,0)
 	# show NN FPS
         cv2.putText(frame, "NN fps: {:.2f}".format(self.counter / (time.monotonic() - self.startTime)),
                                 (2, 20), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color = artifact_color)
@@ -383,6 +386,7 @@ if __name__ == "__main__":
     parser.add_argument('-track', '--delphitrack', action="store_true", help="Send messages to track system")
     parser.add_argument('-record', '--record', choices=['360p', '720p', '1080p'], default = None, help="Save recording of all connected OAK")
     parser.add_argument('-video', '--video', action="store_true", default = None, help="Run Video as Input")
+    parser.add_argument('-speed', '--speed', default = 1, type = int, help="Speed of Video Playback - Default: 1")
     args = parser.parse_args()
     
     if args.video == True:
@@ -398,9 +402,12 @@ if __name__ == "__main__":
     camera_track_list = []
         
     for device_id in oak_device_ids:
-        print(f"[INFO] OAK DEVICE: {device_id}")
-        cam = OakSim(deviceID = device_id, save_record = args.record, play_video = args.video)
-        station = pickle_util.load(f"storage-oak/station_{device_id}.pb", error_return = '001')
+        station = pickle_util.load(f"storage-oak/station_{device_id}.pb", error_return = '255')
+        print(f"[INFO] OAK DEVICE: {device_id} - STATION: {station}")
+        if station == '000' or station == '255':
+            print(f"[INFO] Not Initializing Invalid Station {station}")
+            continue
+        cam = OakSim(deviceID = device_id, save_record = args.record, play_video = args.video, speed = args.speed)
         tck = DTrack(name = station, connect = dconn.get_conn())
         camera_track_list.append((cam, tck))
     
@@ -416,7 +423,11 @@ if __name__ == "__main__":
         
         except KeyboardInterrupt:
             print(f"[INFO] Keyboard Interrupt")
-            break  
+            break 
+        
+        except EOFError:
+            print(f"[INFO] End of Video")
+            break
 
     dconn.close_socket()
     
