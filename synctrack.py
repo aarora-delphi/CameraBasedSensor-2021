@@ -8,59 +8,39 @@ import subprocess
 ### local-packages
 from timeout import timeout
 from logger import *
+from runtrack import DConnect
 
 class TrackSync():
 
-    def __init__(self, name = "Track1", connect = True):
+    def __init__(self, name = "Track1", connect = (None, None, None)):
         self.name = name
-        
-        # connect to track system or not
-        self.connect = connect
-        
-        self.HOST = "0.0.0.0"
-        self.PORT = 5000
-        self.s = None
-        self.conn = None
-        self.addr = None
-        
-        # set Track connection up
-        if self.connect:
-            try:
-                self.set_track()
-                self.sync_time()
-            except KeyboardInterrupt:
-                log.info(f"Keyboard Interrupt")
-                self.close_socket()
-            except BrokenPipeError:
-                log.error(f"Broken Pipe")
-                self.close_socket()
-            except ConnectionResetError:
-                log.error(f"Connection Reset")
-                self.close_socket()
+        self.set_connect(connect)
     
-    def close_socket(self):
+    def set_connect(self, connect):
+        self.connect = connect != (None, None, None)
+        self.s, self.conn, self.addr = connect
+    
+    def sync_on_boot(self):
         """
-            Close the socket connection 's'
+            Command to Sync with Track System on Track Boot
         """
-        if self.s != None:
-            self.s.close()
-        if self.conn != None:
-            self.conn.close()
-        log.info("Sockets Closed")
+        try:
+            self.sync_time()
+        except KeyboardInterrupt:
+            log.info(f"Keyboard Interrupt")
+        except BrokenPipeError:
+            log.error(f"Broken Pipe")
+        except ConnectionResetError:
+            log.error(f"Connection Reset")
 
-    def set_track(self):
+    def check_for_sync(self):
         """
-            Bind to Delphi Track sockets for communication
+            Listen for hourly Sync Messages
         """
-        log.info("Searching for Delphi Track...")
-        log.info(f"Hostname: {socket.gethostname()}")
-        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        with self.s:
-            self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.s.bind((self.HOST, self.PORT))
-            self.s.listen(1)
-            self.conn, self.addr = self.s.accept()
-            log.info("Found Delphi Track - Connection from: " + str(self.addr))
+        message = self.receive_message(timeout = 2):
+        if message != "":
+            log.info(f"TRACK SYNC MESSAGE RECEIVED: {message}")
+            # TO DO - Translate Messages and act upon them     
 
     def parse_message2(self, message):
         """
@@ -106,12 +86,13 @@ class TrackSync():
 
         try:
             message123 = ""
-            message123 = self.receive_message()
+            message123 = self.receive_message(timeout = 2)
+            log.info(f"MESSAGE: {message123}")
         except Exception as e:
             log.exception(f"{e}")
 
         if len(message123) < 74:
-            log.info("Aborting Sync")
+            log.info("Aborting Boot Sync")
             return
 
         message1 = message123[:24]
@@ -135,23 +116,54 @@ class TrackSync():
         to_send = bytes.fromhex(response)
         self.conn.sendall(to_send)
         log.info(f"SENT RESPONSE: {response}")
-
-    @timeout(2)    
-    def receive_message(self):
+  
+    def receive_message(self, timeout = 2):
         """
             Receive a message from Delphi Track
         """
-        log.info("WAITING FOR MESSAGE...")
+        start = time.time()
         total = ""
         while True:
             data = self.conn.recv(1)
             total += data.hex()
             if not data and total != "":
                 break
+            if not data and time.time() - start > timeout:
+                break
 
-        log.info(f"MESSAGE: {total}")
         return total
 
+def restart_connect(dconn, strack):
+    """
+        Shorthand to reconnect to Track
+    """
+    dconn.close_socket()
+    dconn.set_track()
+    strack.set_connect(dconn.get_conn())
+
 if __name__ == "__main__":
-    strack = TrackSync()
-    strack.close_socket()
+    dconn = DConnect(connect = True)
+    strack = TrackSync(connect = dconn.get_conn())
+    strack.sync_on_boot()
+    restart_connect(dconn, strack)
+    
+    while True:
+        try: 
+            strack.check_for_sync()
+        except KeyboardInterrupt:
+            log.info(f"Keyboard Interrupt")
+            break
+        except BrokenPipeError:
+            log.error(f"Sync - Broken Pipe")
+            restart_connect(dconn, strack)
+        except ConnectionResetError:
+            log.error(f"Sync - Connection Reset")
+            restart_connect(dconn, strack)
+        except:
+            log.exception(f"New Exception")
+            break
+            
+    dconn.close_socket()
+        
+    
+    
