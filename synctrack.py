@@ -6,7 +6,7 @@ import re
 import subprocess
 
 ### local-packages
-from timeout import timeout
+from timeout import timeout, TimeoutError
 from logger import *
 from runtrack import DConnect
 
@@ -24,6 +24,7 @@ class TrackSync():
         """
             Command to Sync with Track System on Track Boot
         """
+        log.info(f"Performing Boot Sync")
         try:
             self.sync_time()
         except KeyboardInterrupt:
@@ -37,7 +38,8 @@ class TrackSync():
         """
             Listen for hourly Sync Messages
         """
-        message = self.receive_message(timeout = 2):
+        log.info(f"Checking for Sync")
+        message = self.receive_message_blocking()
         if message != "":
             log.info(f"TRACK SYNC MESSAGE RECEIVED: {message}")
             # TO DO - Translate Messages and act upon them     
@@ -86,7 +88,7 @@ class TrackSync():
 
         try:
             message123 = ""
-            message123 = self.receive_message(timeout = 2)
+            message123 = self.receive_message()
             log.info(f"MESSAGE: {message123}")
         except Exception as e:
             log.exception(f"{e}")
@@ -116,22 +118,34 @@ class TrackSync():
         to_send = bytes.fromhex(response)
         self.conn.sendall(to_send)
         log.info(f"SENT RESPONSE: {response}")
-  
-    def receive_message(self, timeout = 2):
+ 
+    @timeout(2)
+    def receive_message(self):
         """
             Receive a message from Delphi Track
         """
-        start = time.time()
         total = ""
         while True:
             data = self.conn.recv(1)
             total += data.hex()
             if not data and total != "":
                 break
-            if not data and time.time() - start > timeout:
+
+        return total
+
+    def receive_message_blocking(self):
+        """
+            Receive a message from Delphi Track - blocking
+        """
+        total = ""
+        while True:
+            data = self.conn.recv(1)
+            total += data.hex()
+            if not data and total != "":
                 break
 
         return total
+
 
 def restart_connect(dconn, strack):
     """
@@ -159,6 +173,8 @@ if __name__ == "__main__":
         except ConnectionResetError:
             log.error(f"Sync - Connection Reset")
             restart_connect(dconn, strack)
+        except TimeoutError:
+            pass
         except:
             log.exception(f"New Exception")
             break
