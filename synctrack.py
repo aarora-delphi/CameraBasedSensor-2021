@@ -25,24 +25,54 @@ class TrackSync():
             Command to Sync with Track System on Track Boot
         """
         log.info(f"Performing Boot Sync")
-        try:
-            self.sync_time()
-        except KeyboardInterrupt:
-            log.info(f"Keyboard Interrupt")
-        except BrokenPipeError:
-            log.error(f"Broken Pipe")
-        except ConnectionResetError:
-            log.error(f"Connection Reset")
+        return self.sync_wrapper(self.sync_time)
 
-    def check_for_sync(self):
+    def sync_on_recv(self):
         """
             Listen for hourly Sync Messages
         """
-        log.info(f"Checking for Sync")
+        log.info(f"Performing Sync Check")
+        return self.sync_wrapper(self.sync_listen) 
+
+    def sync_listen(self):
+        """
+            Parse messages received hourly
+        """
         message = self.receive_message_blocking()
         if message != "":
             log.info(f"TRACK SYNC MESSAGE RECEIVED: {message}")
-            # TO DO - Translate Messages and act upon them     
+            # TO DO - Translate Messages and act upon them  
+
+    def sync_time(self):
+        """
+            Send 3 responses to Delphi Track
+            Parse the receive message 2
+            Set the date and time of local Zotac using message 2
+        """
+        self.send_response(response = '1006051003E8') # response 1
+        self.send_response(response = '1006101003DD') # response 2
+        self.send_response(response = '1006061003E7') # response 3
+
+        message123 = self.receive_message()
+        log.info(f"MESSAGE: {message123}")
+
+        if len(message123) < 74:
+            log.info("Aborting Boot Sync")
+            return
+
+        message1 = message123[:24]
+        message2 = message123[24:-12]
+        message3 = message123[-12:]
+
+        log.info(f"MESSAGE123 - {message1} {message2} {message3}")
+        assert message123 == message1 + message2 + message3
+
+        m2hash = self.parse_message2(message2)
+        dt_date = f"{m2hash['year']}-{m2hash['month']:02d}-{m2hash['dayofmonth']:02d}"
+        dt_time = f"{m2hash['hour']:02d}:{m2hash['minute']:02d}:{m2hash['second']:02d}"
+        
+        subprocess.check_call(['./set_datetime.sh', dt_date, dt_time])
+        log.info(f"Set Date and Time: {dt_date} {dt_time}")
 
     def parse_message2(self, message):
         """
@@ -76,41 +106,6 @@ class TrackSync():
     
         return message_parsed
 
-    def sync_time(self):
-        """
-            Send 3 responses to Delphi Track
-            Parse the receive message 2
-            Set the date and time of local Zotac using message 2
-        """
-        self.send_response(response = '1006051003E8') # response 1
-        self.send_response(response = '1006101003DD') # response 2
-        self.send_response(response = '1006061003E7') # response 3
-
-        try:
-            message123 = ""
-            message123 = self.receive_message()
-            log.info(f"MESSAGE: {message123}")
-        except Exception as e:
-            log.exception(f"{e}")
-
-        if len(message123) < 74:
-            log.info("Aborting Boot Sync")
-            return
-
-        message1 = message123[:24]
-        message2 = message123[24:-12]
-        message3 = message123[-12:]
-
-        log.info(f"MESSAGE123 - {message1} {message2} {message3}")
-        assert message123 == message1 + message2 + message3
-
-        m2hash = self.parse_message2(message2)
-        dt_date = f"{m2hash['year']}-{m2hash['month']:02d}-{m2hash['dayofmonth']:02d}"
-        dt_time = f"{m2hash['hour']:02d}:{m2hash['minute']:02d}:{m2hash['second']:02d}"
-        
-        subprocess.check_call(['./set_datetime.sh', dt_date, dt_time])
-        log.info(f"Set Date and Time: {dt_date} {dt_time}")
-
     def send_response(self, response):
         """
             Send a response to Delphi Track
@@ -121,6 +116,12 @@ class TrackSync():
  
     @timeout(2)
     def receive_message(self):
+        return self.receive_message_operation() # timeout applied
+
+    def receive_message_blocking(self): 
+        return self.receive_message_operation() # blocking applied
+
+    def receive_message_operation(self):
         """
             Receive a message from Delphi Track
         """
@@ -131,52 +132,62 @@ class TrackSync():
             if not data and total != "":
                 break
 
-        return total
+        return total        
 
-    def receive_message_blocking(self):
+    def sync_wrapper(self, func):
         """
-            Receive a message from Delphi Track - blocking
+            Try Except Wrapper to handle socket status on func
+            Status Code is returned
         """
-        total = ""
-        while True:
-            data = self.conn.recv(1)
-            total += data.hex()
-            if not data and total != "":
-                break
-
-        return total
-
+        try:
+            func()
+        except KeyboardInterrupt:
+            log.info(f"Keyboard Interrupt")
+            return 1
+        except BrokenPipeError:
+            log.error(f"Broken Pipe")
+            return 2
+        except ConnectionResetError:
+            log.error(f"Connection Reset")
+            return 3
+        except TimeoutError:
+            log.info(f"Timer Expired")
+            return 4
+        except:
+            log.error(f"New Exception")
+            return -1
+        
+        return 0
 
 def restart_connect(dconn, strack):
     """
         Shorthand to reconnect to Track
     """
+    log.info(f"Restarting Track Connection")
     dconn.close_socket()
     dconn.set_track()
     strack.set_connect(dconn.get_conn())
 
+def mend_status(status, dconn, strack):
+    """
+        Parse Status and return if script should continue
+    """
+    if status == 1 or status == -1:
+        return False
+    if status == 2 or status == 3:
+        restart_connect(dconn, strack)
+    
+    return True
+
 if __name__ == "__main__":
     dconn = DConnect(connect = True)
     strack = TrackSync(connect = dconn.get_conn())
-    strack.sync_on_boot()
-    restart_connect(dconn, strack)
+    status = strack.sync_on_boot()
+    mend_status(status, dconn, strack)
     
     while True:
-        try: 
-            strack.check_for_sync()
-        except KeyboardInterrupt:
-            log.info(f"Keyboard Interrupt")
-            break
-        except BrokenPipeError:
-            log.error(f"Sync - Broken Pipe")
-            restart_connect(dconn, strack)
-        except ConnectionResetError:
-            log.error(f"Sync - Connection Reset")
-            restart_connect(dconn, strack)
-        except TimeoutError:
-            pass
-        except:
-            log.exception(f"New Exception")
+        status = strack.sync_on_recv()
+        if not mend_status(status, dconn, strack):
             break
             
     dconn.close_socket()
