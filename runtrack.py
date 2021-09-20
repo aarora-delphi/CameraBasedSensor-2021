@@ -32,7 +32,8 @@ class DConnect():
         log.info("Searching for Delphi Track...")
         log.info(f"Hostname: {socket.gethostname()}")
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        ### self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1) # allows multiple bind to same port
         self.s.bind((self.HOST, self.PORT))
         self.s.listen(1)
         self.conn, self.addr = self.s.accept()
@@ -94,9 +95,7 @@ class DTrack():
         
         # connect to track system or not
         self.connect = connect != (None, None, None)
-        self.s = connect[0]
-        self.conn = connect[1]
-        self.addr = connect[2]
+        self.s, self.conn, self.addr = connect
         
         # resend saved message from past failed attempt
         if self.connect and self.resend_message != None:
