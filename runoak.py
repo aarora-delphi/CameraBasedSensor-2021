@@ -26,6 +26,7 @@ class Oak():
         self.ROI = [[50, 50], [250, 50], [250, 250], [50, 250]] # sample ROI
         self.set_roi() # sets last saved ROI
         self.car_count = 0
+        self.error_flag = 0
         
         model_location = './OAK_Course_Examples/models/OpenVINO_2021_2/mobilenet-ssd_openvino_2021.2_6shave.blob'
         self.nnPath = str((Path(__file__).parent / Path(model_location)).resolve().absolute())
@@ -45,9 +46,9 @@ class Oak():
         ### self.video = np.zeros([300,300,3],dtype=np.uint8) # new
 
         self.pipeline = self.define_pipeline()
-        found, device_info = dai.Device.getDeviceByMxId(self.deviceID)
-        self.device = dai.Device(self.pipeline, device_info)
-        self.qRgb, self.qDet, self.qVideo = self.start_pipeline()
+        found, self.device_info = dai.Device.getDeviceByMxId(self.deviceID)
+        self.device = dai.Device(self.pipeline, self.device_info)
+        self.start_pipeline()
 
     def define_pipeline(self):
         """
@@ -101,11 +102,9 @@ class Oak():
         self.device.startPipeline()
 
         # Output queues get the rgb frames and nn data from the defined output streams.
-        qRgb = self.device.getOutputQueue(name="rgb", maxSize=4, blocking=False)
-        qDet = self.device.getOutputQueue(name="nn", maxSize=4, blocking=False)
-        qVideo = None ### self.device.getOutputQueue(name="video", maxSize=4, blocking=False) # new
-            
-        return (qRgb, qDet, qVideo)
+        self.qRgb = self.device.getOutputQueue(name="rgb", maxSize=4, blocking=False)
+        self.qDet = self.device.getOutputQueue(name="nn", maxSize=4, blocking=False)
+        self.qVideo = None ### self.device.getOutputQueue(name="video", maxSize=4, blocking=False) # new
             
     def inference(self, show_display = False):
         """
@@ -304,9 +303,13 @@ if __name__ == "__main__":
     camera_track_list = []
         
     for device_id in oak_device_ids:
-        log.info(f"OAK DEVICE: {device_id}")
-        cam = Oak(deviceID = device_id)
         station = pickle_util.load(f"storage-oak/station_{device_id}.pb", error_return = '255')
+        log.info(f"OAK DEVICE: {device_id} - STATION: {station}")
+        if station in ['255']:
+            log.error(f"Invalid Station {station} - Abort {device_id} Initialization")
+            continue
+
+        cam = Oak(deviceID = device_id)
         tck = DTrack(name = station, connect = dconn.get_conn())
         camera_track_list.append([cam, tck])
     
@@ -331,8 +334,18 @@ if __name__ == "__main__":
             for i in range(len(camera_track_list)):
                 camera_track_list[i][1].set_connect(dconn.get_conn()) # reset track connection
         
-        except RuntimeError as e:
-            log.exception(f"Runtime Error") # TODO - resolve Runtime Errors ex. OAK is disconnected
+        except RuntimeError:
+            if camera.error_flag == 0:
+                log.exception(f"Runtime Error for {camera.deviceID}")
+                camera.error_flag = 1
+            if camera.device.isClosed() and camera.deviceID in getOakDeviceIds(): # TO DO - make non-blocking
+                log.info(f"Found {camera.deviceID} - Reconnecting to OAK Pipeline")
+                camera.device = dai.Device(camera.pipeline, camera.device_info)
+                camera.start_pipeline()
+                camera.error_flag = 0
+        
+        except:
+            log.exception(f"New exception")
             break
 
     dconn.close_socket()
