@@ -62,10 +62,14 @@ class Oak():
         cam = pipeline.createColorCamera()
         nn = pipeline.createMobileNetDetectionNetwork()
 
+        controlIn = pipeline.createXLinkIn()
+        configIn = pipeline.createXLinkIn()
         xoutFrame = pipeline.createXLinkOut()
         xoutNN = pipeline.createXLinkOut()
         ### xoutVideo = pipeline.createXLinkOut() # new
 
+        controlIn.setStreamName('control')
+        configIn.setStreamName('config')
         xoutFrame.setStreamName("rgb")
         xoutNN.setStreamName("nn")
         ### xoutVideo.setStreamName("video") # new
@@ -74,18 +78,16 @@ class Oak():
         cam.setPreviewKeepAspectRatio(True)
         cam.setPreviewSize(300, 300)
         cam.setInterleaved(False)
-        # available resolutions are THE_1080_P (default), THE_4_K, THE_12_MP
-        cam.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
-        # rotate camera 180 degrees
+        cam.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P) # THE_1080_P, THE_4_K, THE_12_MP
         cam.setImageOrientation(dai.CameraImageOrientation.ROTATE_180_DEG)
-		
-        # Define a neural network that will make predictions based on the source frames
         nn.setBlobPath(self.nnPath)
         nn.setConfidenceThreshold(0.7)
         nn.setNumInferenceThreads(2)
         nn.input.setBlocking(False)
 
         # Linking
+        controlIn.out.link(cam.inputControl)
+        configIn.out.link(cam.inputConfig)
         cam.preview.link(xoutFrame.input)
         cam.preview.link(nn.input)
         nn.out.link(xoutNN.input)
@@ -98,14 +100,27 @@ class Oak():
             Output Queues used for requesting frame and detections
         """
         log.info("Starting OAK Pipeline...")
-        # Start pipeline
         self.device.startPipeline()
 
         # Output queues get the rgb frames and nn data from the defined output streams.
+        self.controlQueue = self.device.getInputQueue('control')
+        self.configQueue = self.device.getInputQueue('config')
         self.qRgb = self.device.getOutputQueue(name="rgb", maxSize=4, blocking=False)
         self.qDet = self.device.getOutputQueue(name="nn", maxSize=4, blocking=False)
         self.qVideo = None ### self.device.getOutputQueue(name="video", maxSize=4, blocking=False) # new
-            
+    
+        self.trigger_autofocus()
+    
+    def trigger_autofocus(self):
+        """
+            Trigger autofocus and disable continuous autofocus
+        """
+        log.info("Autofocus triggered (and continuous autofocus disabled)")
+        ctrl = dai.CameraControl()
+        ctrl.setAutoFocusMode(dai.CameraControl.AutoFocusMode.AUTO)
+        ctrl.setAutoFocusTrigger()
+        self.controlQueue.send(ctrl)    
+          
     def inference(self, show_display = False):
         """
             Request request frames and detections
