@@ -37,10 +37,7 @@ class Oak():
                     "diningtable", "dog", "horse", "motorbike", "person", \
                     "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
 
-        self.startTime = time.monotonic()
-        self.counter = 0
         self.detections = []
-        
         self.frame = np.zeros([300,300,3],dtype=np.uint8)
         self.debugFrame = None
         ### self.video = np.zeros([300,300,3],dtype=np.uint8) # new
@@ -109,6 +106,8 @@ class Oak():
         self.qDet = self.device.getOutputQueue(name="nn", maxSize=4, blocking=False)
         self.qVideo = None ### self.device.getOutputQueue(name="video", maxSize=4, blocking=False) # new
     
+        self.startTime = time.monotonic()
+        self.counter = 0
         self.trigger_autofocus()
     
     def trigger_autofocus(self):
@@ -352,6 +351,7 @@ if __name__ == "__main__":
         except RuntimeError:
             if camera.error_flag == 0:
                 log.exception(f"Runtime Error for {camera.deviceID}")
+                camera.device.close() # close device
                 camera.error_flag = 1
             if camera.device.isClosed() and camera.deviceID in getOakDeviceIds(): # TO DO - make non-blocking
                 log.info(f"Found {camera.deviceID} - Reconnecting to OAK Pipeline")
@@ -364,3 +364,7 @@ if __name__ == "__main__":
             break
 
     dconn.close_socket()
+    
+    for (camera, track) in camera_track_list:
+        log.info(f"Closing Device {camera.deviceID}")
+        camera.device.close() # close device
