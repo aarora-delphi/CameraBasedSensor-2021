@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 ### python-packages
 from tkinter import *
 import tkinter.messagebox
