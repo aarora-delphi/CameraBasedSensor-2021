@@ -15,15 +15,17 @@ import pickle_util
 from find_intersect import intersection_of_polygons
 from runtrack import DTrack, DConnect
 from runoak import Oak
+from logger import *
 
 class OakSim():
 
-    def __init__(self, name = "OAK1", deviceID = None, save_record = None, play_video = None, speed = 1):
+    def __init__(self, name = "OAK1", deviceID = None, save_record = None, play_video = None, speed = 1, skip = 0):
         self.name = name
         self.deviceID = deviceID
         self.save_video = save_record
         self.play_record = play_video
         self.speed = int(speed)
+        self.skip = int(int(skip) / self.speed)
         
         if self.play_record != None:
             self.play_record = str((Path(__file__).parent / Path(self.play_record)).resolve().absolute())
@@ -161,8 +163,14 @@ class OakSim():
         """
         if self.play_record != None:
             if self.cap.isOpened():
-                for i in range(self.speed):
-                    read_correctly, record_frame = self.cap.read()
+                
+                if self.skip > 0:
+                    read_correctly, record_frame = True, self.frame
+                    self.skip -= 1
+                else:
+                    for i in range(self.speed):
+                        read_correctly, record_frame = self.cap.read()
+                    
                 if read_correctly:
                     self.video = record_frame
                     record_height, record_width, _ = record_frame.shape
@@ -387,6 +395,7 @@ if __name__ == "__main__":
     parser.add_argument('-record', '--record', choices=['360p', '720p', '1080p'], default = None, help="Save recording of all connected OAK")
     parser.add_argument('-video', '--video', action="store_true", default = None, help="Run Video as Input")
     parser.add_argument('-speed', '--speed', default = 1, type = int, help="Speed of Video Playback - Default: 1")
+    parser.add_argument('-skip', '--skip', default = 0, type = int, help="Frames to delay video playback - Compounded with # of OAK")
     args = parser.parse_args()
     
     if args.video == True:
@@ -401,15 +410,17 @@ if __name__ == "__main__":
     dconn = DConnect(connect = args.delphitrack)
     camera_track_list = []
         
-    for device_id in oak_device_ids:
+    for count, device_id in enumerate(oak_device_ids):
         station = pickle_util.load(f"storage-oak/station_{device_id}.pb", error_return = '255')
         print(f"[INFO] OAK DEVICE: {device_id} - STATION: {station}")
-        if station == '000' or station == '255':
-            print(f"[INFO] Not Initializing Invalid Station {station}")
+        if station in ['255']:
+            log.error(f"Invalid Station {station} - Abort {device_id} Initialization")
             continue
-        cam = OakSim(deviceID = device_id, save_record = args.record, play_video = args.video, speed = args.speed)
+        cam = OakSim(deviceID = device_id, save_record = args.record, play_video = args.video, speed = args.speed, skip = args.skip*count)
         tck = DTrack(name = station, connect = dconn.get_conn())
         camera_track_list.append((cam, tck))
+    
+    videoComplete = [] # store finished OAK videos
     
     while True:
         try:
@@ -426,8 +437,12 @@ if __name__ == "__main__":
             break 
         
         except EOFError:
-            print(f"[INFO] End of Video")
-            break
+            if camera.deviceID not in videoComplete:
+                print(f"[INFO] End of Video for {camera.deviceID}")
+                videoComplete.append(camera.deviceID)
+                if len(videoComplete) == len(camera_track_list):
+                    break
+            
 
     dconn.close_socket()
     
