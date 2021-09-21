@@ -45,10 +45,8 @@ class OakSim():
                     "diningtable", "dog", "horse", "motorbike", "person", \
                     "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
 
-        self.startTime = time.monotonic()
-        self.counter = 0
+
         self.detections = []
-        
         self.video = np.zeros([300,300,3],dtype=np.uint8) # new
         self.frame = np.zeros([300,300,3],dtype=np.uint8)
         self.debugFrame = None
@@ -56,7 +54,7 @@ class OakSim():
         self.pipeline = self.define_pipeline()
         found, device_info = dai.Device.getDeviceByMxId(self.deviceID)
         self.device = dai.Device(self.pipeline, device_info)
-        self.qVideo, self.qRgb, self.qDet, self.qIn_Frame = self.start_pipeline()
+        self.start_pipeline()
         
         if self.save_video != None:
             self.video_buffer = cv2.VideoWriter(f"recording/{self.deviceID}-{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.mp4", cv2.VideoWriter_fourcc(*'mp4v'), 30, self.preview_size)
@@ -145,15 +143,16 @@ class OakSim():
 
         # Output queues will be used to get the rgb frames and nn data from the
         # output streams defined above.
-        qVideo = self.device.getOutputQueue(name="video", maxSize=4, blocking=False) # new
-        qRgb = self.device.getOutputQueue(name="rgb", maxSize=4, blocking=False)
-        qDet = self.device.getOutputQueue(name="nn", maxSize=4, blocking=False)
-        qIn_Frame = None
+        self.qVideo = self.device.getOutputQueue(name="video", maxSize=4, blocking=False) # new
+        self.qRgb = self.device.getOutputQueue(name="rgb", maxSize=4, blocking=False)
+        self.qDet = self.device.getOutputQueue(name="nn", maxSize=4, blocking=False)
+        self.qIn_Frame = None
         
         if self.play_record != None:
-            qIn_Frame = self.device.getInputQueue(name="inFrame", maxSize=4, blocking=False)
+            self.qIn_Frame = self.device.getInputQueue(name="inFrame", maxSize=4, blocking=False)
             
-        return (qVideo, qRgb, qDet, qIn_Frame)
+        self.startTime = time.monotonic()
+        self.counter = 0
     
             
     def inference(self, show_display = False):
