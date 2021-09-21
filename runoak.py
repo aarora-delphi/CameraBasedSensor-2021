@@ -42,10 +42,14 @@ class Oak():
         self.debugFrame = None
         ### self.video = np.zeros([300,300,3],dtype=np.uint8) # new
 
+    def organize_pipeline(self):
+        """
+            OAK Pipeline is defined, Device is found, and Pipeline is started 
+        """
         self.pipeline = self.define_pipeline()
         found, self.device_info = dai.Device.getDeviceByMxId(self.deviceID)
         self.device = dai.Device(self.pipeline, self.device_info)
-        self.start_pipeline()
+        self.start_pipeline()        
 
     def define_pipeline(self):
         """
@@ -277,7 +281,6 @@ class Oak():
         
         return point_list
         
-    
     def bbox_in_roi(self, bbox):
         """
             Check if BBOX in ROI
@@ -293,6 +296,9 @@ class Oak():
             
         return in_roi
 
+    def release_resources(self):
+        log.info(f"Closing Device {self.deviceID}")
+        self.device.close() # close device
 
 def getOakDeviceIds():
     deviceIds = lambda : [device_info.getMxId() for device_info in dai.Device.getAllAvailableDevices()]
@@ -302,7 +308,7 @@ def getOakDeviceIds():
         oak_device_ids = deviceIds()
     return oak_device_ids
 
-#### testing below ####
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-track', '--delphitrack', action="store_true", help="Send messages to track system")
@@ -323,7 +329,7 @@ if __name__ == "__main__":
             log.error(f"Invalid Station {station} - Abort {device_id} Initialization")
             continue
 
-        cam = Oak(deviceID = device_id)
+        cam = Oak(deviceID = device_id); cam.organize_pipeline()
         tck = DTrack(name = station, connect = dconn.get_conn())
         camera_track_list.append([cam, tck])
     
@@ -366,5 +372,4 @@ if __name__ == "__main__":
     dconn.close_socket()
     
     for (camera, track) in camera_track_list:
-        log.info(f"Closing Device {camera.deviceID}")
-        camera.device.close() # close device
+        camera.release_resources()
