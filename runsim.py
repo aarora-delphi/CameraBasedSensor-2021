@@ -19,13 +19,14 @@ from logger import *
 
 class OakSim(Oak):
 
-    def __init__(self, name = "OAK1", deviceID = None, save_video = None, play_video = None, speed = 1, skip = 0):
+    def __init__(self, name = "OAK1", deviceID = None, save_video = None, play_video = None, speed = 1, skip = 0, loop = False):
         super().__init__(name, deviceID)
         
         self.save_video = save_video
         self.play_video = play_video
         self.speed = int(speed)
         self.skip = int(int(skip) / self.speed)
+        self.loop = loop
         
         if self.play_video != None:
             self.play_video = str((Path(__file__).parent / Path(self.play_video)).resolve().absolute())
@@ -145,28 +146,29 @@ class OakSim(Oak):
             Request request frames and detections
             Check if drawroi.py is in use
         """
-        if self.play_video != None:
-            if self.cap.isOpened():
+        if self.play_video != None and self.cap.isOpened():
+            if self.skip > 0:
+                read_correctly, video_frame = True, self.frame
+                self.skip -= 1
+            else:
+                for i in range(self.speed):
+                    read_correctly, video_frame = self.cap.read()
                 
-                if self.skip > 0:
-                    read_correctly, video_frame = True, self.frame
-                    self.skip -= 1
-                else:
-                    for i in range(self.speed):
-                        read_correctly, video_frame = self.cap.read()
-                    
-                if read_correctly:
-                    self.video = video_frame
-                    video_height, video_width, _ = video_frame.shape
-                    img = dai.ImgFrame()
-                    img.setData(self.to_planar(video_frame, (300, 300))) # tried (video_height, video_width) 
-                    img.setTimestamp(time.monotonic())
-                    img.setWidth(300) # tried video_width
-                    img.setHeight(300) # tried video_height
-                    img.setType(dai.ImgFrame.Type.BGR888p)
-            
-                    # Use input queue to send video frame to device
-                    self.qIn_Frame.send(img)
+            if read_correctly:
+                self.video = video_frame
+                video_height, video_width, _ = video_frame.shape
+                img = dai.ImgFrame()
+                img.setData(self.to_planar(video_frame, (300, 300))) # tried (video_height, video_width) 
+                img.setTimestamp(time.monotonic())
+                img.setWidth(300) # tried video_width
+                img.setHeight(300) # tried video_height
+                img.setType(dai.ImgFrame.Type.BGR888p)
+        
+                # Use input queue to send video frame to device
+                self.qIn_Frame.send(img)
+            else:
+                if self.loop:
+                    self.cap = cv2.VideoCapture(self.play_video)    
                 else:
                     raise EOFError
         
@@ -223,6 +225,7 @@ def parse_arguments():
     parser.add_argument('-video', '--video', action="store_true", default = None, help="Run Video as Input")
     parser.add_argument('-speed', '--speed', default = 1, type = int, help="Speed of Video Playback - Default: 1")
     parser.add_argument('-skip', '--skip', default = 0, type = int, help="Frames to delay video playback - Compounded with # of OAK")
+    parser.add_argument('-loop', '--loop', action="store_true", default = False, help="Loop Video Playback Indefinitely")
     args = parser.parse_args()
     
     if args.video == True:
@@ -248,7 +251,8 @@ def create_camera_track_list(camera_track_list, args):
         camera_track_list.append([cam, tck])
 
 def getCam(device_id, args, count):
-    return OakSim(deviceID = device_id, save_video = args.record, play_video = args.video, speed = args.speed, skip = args.skip*count) 
+    return OakSim(deviceID = device_id, save_video = args.record, play_video = args.video, \
+                  speed = args.speed, skip = args.skip*count, loop = args.loop) 
 
 if __name__ == "__main__":
     args = parse_arguments()
