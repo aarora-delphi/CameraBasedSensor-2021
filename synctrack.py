@@ -121,9 +121,9 @@ class TrackSync():
         """
             Send a Response to Insight Track
         """
-        if encode_type = 'hex':
+        if encode_type == 'hex':
             to_send = bytes.fromhex(response)
-        elif encode_type = 'json':
+        elif encode_type == 'json':
             to_send = json.dumps(response).encode()
         
         self.conn.sendall(to_send)
