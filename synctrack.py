@@ -210,7 +210,7 @@ def synctrackmain(dconn, boot = True):
     if boot:
         status = strack.sync_on_boot()
         #mend_status(status, dconn, strack)
-        strack.send_json_response(response={ "serialnumber": "GXXXX301XXXXX" }, encode_type='json')
+        strack.send_response(response={ "serialnumber": "GXXXX301XXXXX" }, encode_type='json')
 
     while True:
         status = strack.sync_on_recv()
