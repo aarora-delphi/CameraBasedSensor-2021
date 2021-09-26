@@ -86,7 +86,7 @@ class TrackSync():
         dt_date = f"{m2hash['year']}-{m2hash['month']:02d}-{m2hash['dayofmonth']:02d}"
         dt_time = f"{m2hash['hour']:02d}:{m2hash['minute']:02d}:{m2hash['second']:02d}"
         
-        subprocess.check_call(['./set_datetime.sh', dt_date, dt_time])
+        subprocess.check_call(['./script/set_datetime.sh', dt_date, dt_time])
         log.info(f"Set Date and Time: {dt_date} {dt_time}")
 
     def parse_message2(self, message):

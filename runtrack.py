@@ -63,7 +63,7 @@ class DTrack():
         self.resend_message = None
         self.set_connect(connect)
         
-        self.offset = int(subprocess.check_output("./get_timezone.sh").strip()) # gets tz diff in seconds from utc
+        self.offset = int(subprocess.check_output("./script/get_timezone.sh").strip()) # gets tz diff in seconds from utc
         self.buffer_file = f"storage-oak/buffer_position.pb"
         
         # JSON Logging related variables
