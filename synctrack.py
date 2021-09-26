@@ -24,39 +24,35 @@ class TrackSync():
 
     def sync_on_boot(self):
         """
-            Command to Sync with Track System on Track Boot
+            Command to Sync with Insight Track on Track Boot
         """
         log.info(f"Performing Boot Sync")
         return self.sync_wrapper(self.sync_time)
 
     def sync_on_recv(self):
         """
-            Listen for hourly Sync Messages
+            Command to Sync with Insight Track during Regular Operation
         """
         print(f"[INFO] sync")
         return self.sync_wrapper(self.sync_listen) 
 
     def sync_listen(self):
         """
-            Parse messages received hourly
+            Respond to Messages Received from Insight Track
         """
-        
-        self.total = ""
 
         try:
-            self.receive_json_message()
+            self.receive_message(timeout_sec = 1, decode_type = 'text')
         except TimeoutError:
             pass
-        except socket.timeout:
-            print("sync_listen socket timeout")
-            pass
             
-        if self.total == "":
+        if self.message == "": 
             return
 
-        log.info(f"TRACK SYNC MESSAGE RECEIVED: {self.total}")
-        if self.total == '{"get":"serialnumber"}':
-            self.send_json_response(response={ "serialnumber": "GXXXX301XXXXX" })
+        log.info(f"TRACK MESSAGE RECEIVED: {self.message}")
+        
+        if self.message == '{"get":"serialnumber"}':
+            self.send_response(response={ "serialnumber": "GXXXX301XXXXX" }, encode_type = 'json')
 
     def sync_time(self):
         """
@@ -121,52 +117,41 @@ class TrackSync():
     
         return message_parsed
 
-    def send_response(self, response):
+    def send_response(self, response, encode_type = 'hex'):
         """
-            Send a response to Delphi Track
+            Send a Response to Insight Track
         """
-        to_send = bytes.fromhex(response)
+        if encode_type = 'hex':
+            to_send = bytes.fromhex(response)
+        elif encode_type = 'json':
+            to_send = json.dumps(response).encode()
+        
         self.conn.sendall(to_send)
         log.info(f"SENT RESPONSE: {response}")
 
-    def send_json_response(self, response):
-        to_send = json.dumps(response)
-        self.conn.sendall(to_send.encode())
-        log.info(f"SENT RESPONSE: {to_send}")
-
-
-    @timeout(2)
-    def receive_message(self):
-        #self.conn.settimeout(1)
-        return self.receive_message_operation()
+    def receive_message(self, timeout_sec = 2, decode_type = 'hex'):
+        """
+            Catch method to apply timeout decorator to self.receive_message_operation
+        """
+        return timeout(timeout_sec)(self.receive_message_operation)(decode_type) # timeout decorator applied
 	
-    @timeout(1)
-    def receive_json_message(self): 
+    def receive_message_operation(self, type):
         """
-            Receive a json message from Delphi Track
+            Receive a Message from Insight Track
         """
-        #self.conn.settimeout(0.5)
-        self.total = ""
+        self.message = ""
         while True:
             data = self.conn.recv(1)
-            self.total += data.decode()
-            #print(self.total)
-            if not data and self.total != "":
+            
+            if type == 'hex':
+                self.message += data.hex()
+            elif type == 'text':
+                self.message += data.decode()
+            
+            if not data and self.message != "":
                 break
 
-
-    def receive_message_operation(self):
-        """
-            Receive a message from Delphi Track
-        """
-        total = ""
-        while True:
-            data = self.conn.recv(1)
-            total += data.hex()
-            if not data and total != "":
-                break
-
-        return total        
+        return self.message    
 
     def sync_wrapper(self, func):
         """
@@ -218,14 +203,14 @@ def mend_status(status, dconn, strack):
 
 def synctrackmain(dconn, boot = True):
     """
-        Main Loop to recv and send messages to track
+        Main Loop to recv and send messages to Insight Track
     """
-    #dconn = DConnect(connect = True)
+
     strack = TrackSync(connect = dconn.get_conn())
     if boot:
         status = strack.sync_on_boot()
         #mend_status(status, dconn, strack)
-        strack.send_json_response(response={ "serialnumber": "GXXXX301XXXXX" })
+        strack.send_json_response(response={ "serialnumber": "GXXXX301XXXXX" }, encode_type='json')
 
     while True:
         status = strack.sync_on_recv()
