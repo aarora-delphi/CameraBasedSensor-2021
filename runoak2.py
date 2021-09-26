@@ -46,11 +46,15 @@ class Oak():
         self.debugFrame = None
 
         self.pipeline = self.define_pipeline()
-        self.device = dai.Device(self.pipeline)
+        #self.device = dai.Device(self.pipeline)
+        
+        found, device_info = dai.Device.getDeviceByMxId(self.deviceID)
+        self.device = dai.Device(self.pipeline, device_info)
+        
         self.qVideo, self.qRgb, self.qDet = self.start_pipeline()
         
         if self.save_video != None:
-            self.video_buffer = cv2.VideoWriter(f"recording/{self.deviceID}-{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.mp4", cv2.VideoWriter_fourcc(*'mp4v'), 30, self.preview_size)
+            self.video_buffer = cv2.VideoWriter(f"recording/{self.deviceID}-{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.mp4", cv2.VideoWriter_fourcc(*'mp4v'), 15, self.preview_size)
             print(f"[INFO] Recording Video of {self.deviceID}")
 
     def define_pipeline(self):
@@ -134,7 +138,9 @@ class Oak():
             Request request frames and detections
             Check if drawroi.py is in use
         """
-        inVideo = self.qVideo.tryGet() # new
+        inVideo = None
+        if self.save_video != None or self.drawroi_running:
+            inVideo = self.qVideo.tryGet() # new
         inRgb = self.qRgb.tryGet()
         inDet = self.qDet.tryGet()
 
@@ -199,7 +205,7 @@ class Oak():
         if show_display:
             cv2.imshow(f"debug - {self.deviceID}", self.debugFrame) # cv2.resize(self.debugFrame,None,fx=1.45, fy=1.45))
             #cv2.imshow("rgb - {self.deviceID}", cv2.resize(self.frame,None,fx=1.5, fy=1.5))
-            cv2.imshow(f"video - {self.deviceID}", imutils.resize(self.video, height=300)) # cv2.resize(self.video,None,fx=0.4, fy=0.4)) # new
+            #cv2.imshow(f"video - {self.deviceID}", self.video) #imutils.resize(self.video, height=300)) # cv2.resize(self.video,None,fx=0.4, fy=0.4)) # new
 
         return self.car_count 
         
@@ -228,7 +234,7 @@ class Oak():
             bbox_color = (0,0,255) # red
             
             # address bbox with correct label
-            if self.labelMap[detection.label] in ["car", "motorbike", "person"]:
+            if self.labelMap[detection.label] in ["car", "motorbike"]:
                 bbox = self.frameNorm(frame, (detection.xmin, detection.ymin, detection.xmax, detection.ymax))        
                 
                 in_roi = self.bbox_in_roi(bbox)
@@ -332,7 +338,7 @@ if __name__ == "__main__":
     dconn = DConnect(connect = args.delphitrack)
     camera_track_list = []
         
-    for device_id in oak_device_ids:
+    for device_id in oak_device_ids[:]:
         print(f"[INFO] OAK DEVICE: {device_id}")
         cam = Oak(deviceID = device_id, save_video = args.video)
         station = pickle_util.load(f"storage-oak/station_{device_id}.pb", error_return = '001')
