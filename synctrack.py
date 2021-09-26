@@ -21,7 +21,7 @@ class TrackSync():
     def set_connect(self, connect):
         self.connect = connect != (None, None, None)
         self.s, self.conn, self.addr = connect
-    
+
     def sync_on_boot(self):
         """
             Command to Sync with Track System on Track Boot
@@ -33,17 +33,30 @@ class TrackSync():
         """
             Listen for hourly Sync Messages
         """
-        log.info(f"Performing Sync Check")
+        print(f"[INFO] sync")
         return self.sync_wrapper(self.sync_listen) 
 
     def sync_listen(self):
         """
             Parse messages received hourly
         """
-        message = self.receive_message_blocking()
-        if message != "":
-            log.info(f"TRACK SYNC MESSAGE RECEIVED: {message}")
-            # TO DO - Translate Messages and act upon them  
+        
+        self.total = ""
+
+        try:
+            self.receive_json_message()
+        except TimeoutError:
+            pass
+        except socket.timeout:
+            print("sync_listen socket timeout")
+            pass
+            
+        if self.total == "":
+            return
+
+        log.info(f"TRACK SYNC MESSAGE RECEIVED: {self.total}")
+        if self.total == '{"get":"serialnumber"}':
+            self.send_json_response(response={ "serialnumber": "GXXXX301XXXXX" })
 
     def sync_time(self):
         """
@@ -115,13 +128,32 @@ class TrackSync():
         to_send = bytes.fromhex(response)
         self.conn.sendall(to_send)
         log.info(f"SENT RESPONSE: {response}")
- 
+
+    def send_json_response(self, response):
+        to_send = json.dumps(response)
+        self.conn.sendall(to_send.encode())
+        log.info(f"SENT RESPONSE: {to_send}")
+
+
     @timeout(2)
     def receive_message(self):
-        return self.receive_message_operation() # timeout applied
+        #self.conn.settimeout(1)
+        return self.receive_message_operation()
+	
+    @timeout(1)
+    def receive_json_message(self): 
+        """
+            Receive a json message from Delphi Track
+        """
+        #self.conn.settimeout(0.5)
+        self.total = ""
+        while True:
+            data = self.conn.recv(1)
+            self.total += data.decode()
+            #print(self.total)
+            if not data and self.total != "":
+                break
 
-    def receive_message_blocking(self): 
-        return self.receive_message_operation() # blocking applied
 
     def receive_message_operation(self):
         """
@@ -155,8 +187,11 @@ class TrackSync():
         except TimeoutError:
             log.info(f"Timer Expired")
             return 4
-        except:
-            log.error(f"New Exception")
+        except socket.timeout:
+            log.info(f"Socket Timer Expired")
+            return 4
+        except Exception as e:
+            log.error(f"New Exception: {e}")
             return -1
         
         return 0
@@ -181,18 +216,26 @@ def mend_status(status, dconn, strack):
     
     return True
 
-if __name__ == "__main__":
-    dconn = DConnect(connect = True)
+def synctrackmain(dconn, boot = True):
+    """
+        Main Loop to recv and send messages to track
+    """
+    #dconn = DConnect(connect = True)
     strack = TrackSync(connect = dconn.get_conn())
-    status = strack.sync_on_boot()
-    mend_status(status, dconn, strack)
-    
+    if boot:
+        status = strack.sync_on_boot()
+        #mend_status(status, dconn, strack)
+        strack.send_json_response(response={ "serialnumber": "GXXXX301XXXXX" })
+
     while True:
         status = strack.sync_on_recv()
-        if not mend_status(status, dconn, strack):
-            break
-            
+        #if not mend_status(status, dconn, strack):
+        #    log.info(f"Exiting Loop")
+        #    break
+
     dconn.close_socket()
-        
-    
-    
+
+
+if __name__ == "__main__":
+    dconn = DConnect(connect = True)
+    synctrackmain(dconn, boot = True)   

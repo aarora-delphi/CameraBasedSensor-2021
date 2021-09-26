@@ -33,7 +33,7 @@ class DConnect():
         log.info(f"Hostname: {socket.gethostname()}")
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         ### self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1) # allows multiple bind to same port
+        self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1) # allows multiple listen to same port
         self.s.bind((self.HOST, self.PORT))
         self.s.listen(1)
         self.conn, self.addr = self.s.accept()
@@ -166,7 +166,7 @@ class DTrack():
         
         if json_message["status"] != "000":
             print(json_message)
-            print(self.__create_track_string(json_message))
+            #print(self.__create_track_string(json_message))
 
     def __send_json_message(self, msg):
         """
@@ -175,7 +175,7 @@ class DTrack():
         to_send = self.__create_track_string(msg)
         try:
             self.conn.sendall(to_send)
-            print(f"message sent at time {datetime.now().strftime('%H:%M:%S.%f')[:-3]}")
+            #print(f"message sent at time {datetime.now().strftime('%H:%M:%S.%f')[:-3]}")
         except (BrokenPipeError, ConnectionResetError) as e:
             log.error(f'{e} on Station {self.name} - Storing Message')
             self.resend_message = msg

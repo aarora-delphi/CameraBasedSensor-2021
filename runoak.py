@@ -8,12 +8,16 @@ import numpy as np
 import time
 from datetime import datetime
 import argparse
+import threading
+import multiprocessing
 
 ### local-packages
 import pickle_util
 from find_intersect import intersection_of_polygons
 from runtrack import DTrack, DConnect
 from logger import *
+from synctrack import TrackSync, synctrackmain
+
 
 class Oak():
 
@@ -333,6 +337,15 @@ if __name__ == "__main__":
         tck = DTrack(name = station, connect = dconn.get_conn())
         camera_track_list.append([cam, tck])
     
+    ### testing synctrack
+    #synctck = threading.Thread(target=synctrackmain, args=(dconn,), daemon=True)
+    #synctck.start()
+    #log.info("Started synctrack thread")
+    synctck = multiprocessing.Process(target=synctrackmain, args=(dconn,True), daemon=True)
+    synctck.start()
+    log.info("Started synctrack process")
+    ###
+
     while True:
         try:
             for (camera, track) in camera_track_list:
@@ -353,7 +366,12 @@ if __name__ == "__main__":
             dconn = DConnect(connect = args.delphitrack)
             for i in range(len(camera_track_list)):
                 camera_track_list[i][1].set_connect(dconn.get_conn()) # reset track connection
-        
+            
+            synctck.terminate(); synctck.close()
+            synctck = multiprocessing.Process(target=synctrackmain, args=(dconn,False), daemon=True)
+            synctck.start()
+            log.info("Restarted synctrack process")              
+ 
         except RuntimeError:
             if camera.error_flag == 0:
                 log.exception(f"Runtime Error for {camera.deviceID}")
