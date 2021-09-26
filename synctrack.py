@@ -197,7 +197,8 @@ def mend_status(status, dconn, strack):
     if status == 1 or status == -1:
         return False
     if status == 2 or status == 3:
-        restart_connect(dconn, strack)
+        # restart_connect(dconn, strack)
+        return False
     
     return True
 
@@ -214,13 +215,11 @@ def synctrackmain(dconn, boot = True):
 
     while True:
         status = strack.sync_on_recv()
-        #if not mend_status(status, dconn, strack):
-        #    log.info(f"Exiting Loop")
-        #    break
-
-    dconn.close_socket()
-
+        if not mend_status(status, dconn, strack):
+            log.info(f"Exiting Loop")
+            break
 
 if __name__ == "__main__":
     dconn = DConnect(connect = True)
     synctrackmain(dconn, boot = True)   
+    dconn.close_socket()
