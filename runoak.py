@@ -24,7 +24,7 @@ class Oak():
     def __init__(self, name = "OAK1", deviceID = None):
         self.name = name
         self.deviceID = deviceID
-        
+        self.station = pickle_util.load(f"storage-oak/station_{self.deviceID}.pb", error_return = '255')
         self.drawroi_running = False
         
         self.ROI = [[50, 50], [250, 50], [250, 250], [50, 250]] # sample ROI
@@ -187,7 +187,7 @@ class Oak():
         self.processFrame() # determines if bbox in ROI + creates debug frame
         
         if show_display:
-            cv2.imshow(f"debug - {self.deviceID}", self.debugFrame) #cv2.resize(self.debugFrame,None,fx=1.45, fy=1.45))
+            cv2.imshow(f"{self.station} - {self.deviceID}", self.debugFrame) #cv2.resize(self.debugFrame,None,fx=1.45, fy=1.45))
             #cv2.imshow("rgb - {self.deviceID}", cv2.resize(self.frame,None,fx=1.5, fy=1.5))
             ### cv2.imshow(f"video - {self.deviceID}", cv2.resize(self.video,None,fx=0.4, fy=0.4)) # new
 
@@ -246,16 +246,21 @@ class Oak():
         
         return frame
 
-    def processFrameText(self, frame, color = (255,0,0)):
+    def processFrameText(self, frame, color = (255,255,255)):
         """
             Adds NN fps and NUMCAR text to frame
             frame: to-be debug frame
             return: frame 
         """
-        cv2.putText(frame, "NN fps: {:.2f}".format(self.counter / (time.monotonic() - self.startTime)),
+        x,y,w,h = 0,0,100,50
+        cv2.rectangle(frame, (x, x), (x + w, y + h), (0,0,0), -1)
+        
+        # Neural Network Inference FPS
+        cv2.putText(frame, "FPS: {:.2f}".format(self.counter / (time.monotonic() - self.startTime)),
                                 (2, 20), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color = color)
 
-        cv2.putText(frame, "NUMCAR: {}".format(self.car_count), (2, 40), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color = color)
+        # Number of Vehicles in ROI
+        cv2.putText(frame, "CAR: {}".format(self.car_count), (2, 40), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color = color)
 
         return frame
 

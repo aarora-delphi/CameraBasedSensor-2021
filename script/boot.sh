@@ -23,10 +23,10 @@ gnome-terminal --geometry=$WINDOW_SIZE --title=RUNOAK --working-directory=$OAK_D
 xdotool search -name RUNOAK windowminimize
 }
 
-FUNC_SYNCTRACK () {
-gnome-terminal --geometry=$WINDOW_SIZE --title=SYNCTRACK --working-directory=$OAK_DIR -- bash -c './synctrack.py'
-xdotool search -name SYNCTRACK windowminimize
-}
+# FUNC_SYNCTRACK () {
+# gnome-terminal --geometry=$WINDOW_SIZE --title=SYNCTRACK --working-directory=$OAK_DIR -- bash -c './synctrack.py'
+# xdotool search -name SYNCTRACK windowminimize
+# }
 
 while :
 do
@@ -38,11 +38,11 @@ fi
 
 sleep 5
 
-if [[ ! $(wmctrl -l) =~ "SYNCTRACK" ]]; then
-    FUNC_NOTIFY "SYNCTRACK Window is Missing - Executing SYNCTRACK"
-    FUNC_SYNCTRACK
-fi
+# if [[ ! $(wmctrl -l) =~ "SYNCTRACK" ]]; then
+#     FUNC_NOTIFY "SYNCTRACK Window is Missing - Executing SYNCTRACK"
+#     FUNC_SYNCTRACK
+# fi
 
-sleep 5
+# sleep 5
 
 done
