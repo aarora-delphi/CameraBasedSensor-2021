@@ -15,9 +15,9 @@ from find_intersect import intersection_of_polygons
 
 from runtrack import DTrack
 
-nnPath    = str((Path(__file__).parent / Path('./OAK_Course_Examples/models/OpenVINO_2021_2/mobilenet-ssd_openvino_2021.2_6shave.blob')).resolve().absolute())
-#pwdvideo = './OAK_Course_Examples/videos/video123-small-10fps.mp4'
-pwdvideo = './OAK_Course_Examples/videos/video08312021.mp4' 
+nnPath    = str((Path(__file__).parent / Path('./model/mobilenet-ssd_openvino_2021.2_6shave.blob')).resolve().absolute())
+#pwdvideo = './video/video123-small-10fps.mp4'
+pwdvideo = './video/video08312021.mp4' 
 videoPath = str((Path(__file__).parent / Path(pwdvideo)).resolve().absolute())
 
 # MobilenetSSD label texts

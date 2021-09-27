@@ -5,9 +5,9 @@ import sys
 from pathlib import Path
 
 logtoconsole = True
-logfile = f'logs/{date.today()}.log'
+logfile = f'log/{date.today()}.log'
 
-# create file if not exists
+# create file if file does not exist
 Path(logfile).touch(exist_ok=True)
 
 # create and configure logger

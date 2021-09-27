@@ -229,7 +229,7 @@ def parse_arguments():
     args = parser.parse_args()
     
     if args.video == True:
-       args.video = './OAK_Course_Examples/videos/video08312021.mp4' 
+       args.video = './video/video08312021.mp4' 
        
     return args
 

@@ -36,7 +36,7 @@ class OakSim():
         self.set_roi() # sets last saved ROI
         self.car_count = 0
         
-        model_location = './OAK_Course_Examples/models/OpenVINO_2021_2/mobilenet-ssd_openvino_2021.2_6shave.blob'
+        model_location = './model/mobilenet-ssd_openvino_2021.2_6shave.blob'
         self.nnPath = str((Path(__file__).parent / Path(model_location)).resolve().absolute())
 
         # MobilenetSSD class labels
@@ -398,8 +398,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     if args.video == True:
-       #args.video = './OAK_Course_Examples/videos/video123-small-10fps.mp4'
-       args.video = './OAK_Course_Examples/videos/video08312021.mp4' 
+       #args.video = './video/video123-small-10fps.mp4'
+       args.video = './video/video08312021.mp4' 
     
     oak_device_ids = [device_info.getMxId() for device_info in dai.Device.getAllAvailableDevices()]
     print(f"[INFO] Found {len(oak_device_ids)} OAK DEVICES - {oak_device_ids}")

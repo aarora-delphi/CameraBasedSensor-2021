@@ -1,5 +1,5 @@
 # pycache files
 *.pyc
 storage-oak/
-logs/
+log/
 recording/

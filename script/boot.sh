@@ -2,7 +2,7 @@
 
 WINDOW_SIZE='70x20'
 OAK_DIR='/home/delphidisplay/Desktop/CameraBasedSensor-2021/'
-LOG='/home/delphidisplay/Desktop/CameraBasedSensor-2021/logs/boot.log'
+LOG='/home/delphidisplay/Desktop/CameraBasedSensor-2021/log/boot.log'
 
 FUNC_NOTIFY () {
 CURRTIME="$(date '+%m-%d-%Y %H:%M:%S')"

@@ -32,7 +32,7 @@ class Oak():
         self.car_count = 0
         self.error_flag = 0
         
-        model_location = './OAK_Course_Examples/models/OpenVINO_2021_2/mobilenet-ssd_openvino_2021.2_6shave.blob'
+        model_location = './model/mobilenet-ssd_openvino_2021.2_6shave.blob'
         self.nnPath = str((Path(__file__).parent / Path(model_location)).resolve().absolute())
 
         # MobilenetSSD class labels
