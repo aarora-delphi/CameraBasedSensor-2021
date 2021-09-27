@@ -9,6 +9,7 @@ import time
 from datetime import datetime
 import argparse
 import imutils
+import multiprocessing
 
 ### local-packages
 import pickle_util
@@ -16,6 +17,7 @@ from find_intersect import intersection_of_polygons
 from runtrack import DTrack, DConnect
 from runoak import Oak
 from logger import *
+from synctrack import TrackSync, synctrackmain
 
 class OakSim(Oak):
 
@@ -122,7 +124,7 @@ class OakSim(Oak):
         """
         log.info("Starting OAK Pipeline...")
         # Start pipeline
-        self.device.startPipeline()
+        ### self.device.startPipeline() # Deprecation Warning shown if included
 
         # Output queues will be used to get the rgb frames and nn data from the
         # output streams defined above.
@@ -261,6 +263,11 @@ if __name__ == "__main__":
     create_camera_track_list(camera_track_list, args)
     videoComplete = [] # store finished OAK videos
     should_run = True
+    
+    if args.track:
+        synctck = multiprocessing.Process(target=synctrackmain, args=(dconn,True), daemon=True)
+        synctck.start()
+        log.info("Started synctrack process")
     
     while should_run:
         for (camera, track) in camera_track_list:

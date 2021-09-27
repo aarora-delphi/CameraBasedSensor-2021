@@ -105,7 +105,7 @@ class Oak():
             Output Queues used for requesting frame and detections
         """
         log.info("Starting OAK Pipeline...")
-        self.device.startPipeline()
+        ### self.device.startPipeline() # Deprecation Warning shown if included
 
         # Output queues get the rgb frames and nn data from the defined output streams.
         self.controlQueue = self.device.getInputQueue('control')
@@ -324,7 +324,7 @@ def getOakDeviceIds():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-track', '--delphitrack', action="store_true", help="Send messages to track system")
+    parser.add_argument('-track', '--track', action="store_true", help="Send messages to track system")
     args = parser.parse_args()
     
     oak_device_ids = getOakDeviceIds()
@@ -332,7 +332,7 @@ if __name__ == "__main__":
     pickle_util.save("storage-oak/device_id.pb", oak_device_ids)
     assert len(oak_device_ids) != 0
     
-    dconn = DConnect(connect = args.delphitrack)
+    dconn = DConnect(connect = args.track)
     camera_track_list = []
         
     for device_id in oak_device_ids:
@@ -350,9 +350,10 @@ if __name__ == "__main__":
     #synctck = threading.Thread(target=synctrackmain, args=(dconn,), daemon=True)
     #synctck.start()
     #log.info("Started synctrack thread")
-    synctck = multiprocessing.Process(target=synctrackmain, args=(dconn,True), daemon=True)
-    synctck.start()
-    log.info("Started synctrack process")
+    if args.track:
+        synctck = multiprocessing.Process(target=synctrackmain, args=(dconn,True), daemon=True)
+        synctck.start()
+        log.info("Started synctrack process")
     ###
 
     while True:
@@ -376,10 +377,11 @@ if __name__ == "__main__":
             for i in range(len(camera_track_list)):
                 camera_track_list[i][1].set_connect(dconn.get_conn()) # reset track connection
             
-            synctck.terminate(); synctck.close()
-            synctck = multiprocessing.Process(target=synctrackmain, args=(dconn,False), daemon=True)
-            synctck.start()
-            log.info("Restarted synctrack process")              
+            if args.track:
+                synctck.terminate(); synctck.close()
+                synctck = multiprocessing.Process(target=synctrackmain, args=(dconn,False), daemon=True)
+                synctck.start()
+                log.info("Restarted synctrack process")              
  
         except RuntimeError:
             if camera.error_flag == 0:
