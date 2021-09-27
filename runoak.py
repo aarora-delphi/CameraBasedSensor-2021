@@ -252,14 +252,18 @@ class Oak():
             frame: to-be debug frame
             return: frame 
         """
-        x,y,w,h = 0,0,100,50
-        cv2.rectangle(frame, (x, x), (x + w, y + h), (0,0,0), -1)
+        nn_fps = self.counter / (time.monotonic() - self.startTime)
         
         # Neural Network Inference FPS
-        cv2.putText(frame, "FPS: {:.2f}".format(self.counter / (time.monotonic() - self.startTime)),
-                                (2, 20), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color = color)
+        cv2.putText(frame, "FPS: {:.2f}".format(nn_fps),
+                                (2, 20), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color = (0,0,0), thickness = 6) # border text
+        
+        cv2.putText(frame, "FPS: {:.2f}".format(nn_fps), (2, 20), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color = color)
 
         # Number of Vehicles in ROI
+        cv2.putText(frame, "CAR: {}".format(self.car_count), 
+                                (2, 40), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color = (0,0,0), thickness = 6) # border text
+        
         cv2.putText(frame, "CAR: {}".format(self.car_count), (2, 40), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color = color)
 
         return frame
