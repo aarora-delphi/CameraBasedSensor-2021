@@ -240,11 +240,19 @@ def create_camera_track_list(camera_track_list, args):
     log.info(f"Found {len(oak_device_ids)} OAK DEVICES - {oak_device_ids}")
     pickle_util.save("storage-oak/device_id.pb", oak_device_ids)
     assert len(oak_device_ids) != 0
+
+    def order_oak_by_station(elem):
+        station = pickle_util.load(f"storage-oak/station_{elem}.pb", error_return = '255')
+        if station == '000':
+            return 255
+        return int(station)
+
+    oak_device_ids.sort(key=order_oak_by_station)
         
     for count, device_id in enumerate(oak_device_ids):
         station = pickle_util.load(f"storage-oak/station_{device_id}.pb", error_return = '255')
         log.info(f"OAK DEVICE: {device_id} - STATION: {station}")
-        if station in ['255']:
+        if station in ['255', '000']:
             log.error(f"Invalid Station {station} - Abort {device_id} Initialization")
             continue
         cam = getCam(device_id, args, count)
@@ -288,7 +296,10 @@ if __name__ == "__main__":
                     log.info(f"End of Video for {camera.deviceID}")
                     videoComplete.append(camera.deviceID)
                     if len(videoComplete) == len(camera_track_list):
-                        should_run = False; break           
+                        should_run = False; break 
+            except:
+                log.exception(f"New Exception")
+                should_run = False; break          
 
     dconn.close_socket()
     
