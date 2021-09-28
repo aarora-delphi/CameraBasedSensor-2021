@@ -15,7 +15,7 @@ import multiprocessing
 import pickle_util
 from find_intersect import intersection_of_polygons
 from runtrack import DTrack, DConnect
-from runoak import Oak
+from runoak import Oak, getOakDeviceIds
 from logger import *
 from synctrack import TrackSync, synctrackmain
 
@@ -236,7 +236,7 @@ def parse_arguments():
     return args
 
 def create_camera_track_list(camera_track_list, args):
-    oak_device_ids = [device_info.getMxId() for device_info in dai.Device.getAllAvailableDevices()]
+    oak_device_ids = getOakDeviceIds()
     log.info(f"Found {len(oak_device_ids)} OAK DEVICES - {oak_device_ids}")
     pickle_util.save("storage-oak/device_id.pb", oak_device_ids)
     assert len(oak_device_ids) != 0
@@ -255,8 +255,8 @@ def create_camera_track_list(camera_track_list, args):
         if station in ['255', '000']:
             log.error(f"Invalid Station {station} - Abort {device_id} Initialization")
             continue
-        cam = getCam(device_id, args, count)
-        cam.organize_pipeline()
+        
+        cam = getCam(device_id, args, count); cam.organize_pipeline()
         tck = DTrack(name = station, connect = dconn.get_conn())
         camera_track_list.append([cam, tck])
 
@@ -269,8 +269,9 @@ if __name__ == "__main__":
     dconn = DConnect(connect = args.track)
     camera_track_list = []
     create_camera_track_list(camera_track_list, args)
-    videoComplete = [] # store finished OAK videos
     should_run = True
+    
+    videoComplete = [] # store finished OAK videos
     
     if args.track:
         synctck = multiprocessing.Process(target=synctrackmain, args=(dconn,True), daemon=True)
@@ -286,17 +287,43 @@ if __name__ == "__main__":
                 
                 if cv2.waitKey(1) == ord('q'):
                     should_run = False; break  
-        
-            except KeyboardInterrupt:
-                log.info(f"Keyboard Interrupt")
-                should_run = False; break
-        
+
             except EOFError:
                 if camera.deviceID not in videoComplete:
                     log.info(f"End of Video for {camera.deviceID}")
                     videoComplete.append(camera.deviceID)
                     if len(videoComplete) == len(camera_track_list):
                         should_run = False; break 
+        
+            # these 4 exceptions same as runoak.py
+            except KeyboardInterrupt:
+                log.info(f"Keyboard Interrupt")
+                should_run = False; break
+
+            except BrokenPipeError:
+                log.error("Lost Connection to Track")
+                dconn.close_socket()
+                dconn = DConnect(connect = args.delphitrack)
+                for i in range(len(camera_track_list)):
+                    camera_track_list[i][1].set_connect(dconn.get_conn()) # reset track connection
+            
+                if args.track:
+                    synctck.terminate(); synctck.close()
+                    synctck = multiprocessing.Process(target=synctrackmain, args=(dconn,False), daemon=True)
+                    synctck.start()
+                    log.info("Restarted synctrack process")              
+ 
+            except RuntimeError:
+                if camera.error_flag == 0:
+                    log.exception(f"Runtime Error for {camera.deviceID}")
+                    camera.device.close() # close device
+                    camera.error_flag = 1
+                if camera.device.isClosed() and camera.deviceID in getOakDeviceIds(): # TO DO - make non-blocking
+                    log.info(f"Found {camera.deviceID} - Reconnecting to OAK Pipeline")
+                    camera.device = dai.Device(camera.pipeline, camera.device_info)
+                    camera.start_pipeline()
+                    camera.error_flag = 0
+        
             except:
                 log.exception(f"New Exception")
                 should_run = False; break          
