@@ -321,19 +321,17 @@ def getOakDeviceIds():
         oak_device_ids = deviceIds()
     return oak_device_ids
 
-
-if __name__ == "__main__":
+def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument('-track', '--track', action="store_true", help="Send messages to track system")
-    args = parser.parse_args()
-    
+    args = parser.parse_args() 
+    return args
+
+def create_camera_track_list(camera_track_list, args):
     oak_device_ids = getOakDeviceIds()
     log.info(f"Found {len(oak_device_ids)} OAK DEVICES - {oak_device_ids}")
     pickle_util.save("storage-oak/device_id.pb", oak_device_ids)
     assert len(oak_device_ids) != 0
-    
-    dconn = DConnect(connect = args.track)
-    camera_track_list = []
         
     for device_id in oak_device_ids:
         station = pickle_util.load(f"storage-oak/station_{device_id}.pb", error_return = '255')
@@ -346,57 +344,62 @@ if __name__ == "__main__":
         tck = DTrack(name = station, connect = dconn.get_conn())
         camera_track_list.append([cam, tck])
     
+
+if __name__ == "__main__":
+    args = parse_arguments()
+    dconn = DConnect(connect = args.track)
+    camera_track_list = []
+    create_camera_track_list(camera_track_list, args)
+    should_run = True
+        
     ### testing synctrack
-    #synctck = threading.Thread(target=synctrackmain, args=(dconn,), daemon=True)
-    #synctck.start()
-    #log.info("Started synctrack thread")
     if args.track:
         synctck = multiprocessing.Process(target=synctrackmain, args=(dconn,True), daemon=True)
         synctck.start()
         log.info("Started synctrack process")
     ###
 
-    while True:
-        try:
-            for (camera, track) in camera_track_list:
+    while should_run:
+        for (camera, track) in camera_track_list:
+            try:
                 camera.inference()
                 numCars = camera.detect_intersections(show_display = True)
                 track.log_car_detection(numCars)
         
-            if cv2.waitKey(1) == ord('q'):
-                break 
+                if cv2.waitKey(1) == ord('q'):
+                    should_run = False; break 
         
-        except KeyboardInterrupt:
-            log.info(f"Keyboard Interrupt")
-            break 
+            except KeyboardInterrupt:
+                log.info(f"Keyboard Interrupt")
+                should_run = False; break 
         
-        except BrokenPipeError:
-            log.error("Lost Connection to Track")
-            dconn.close_socket()
-            dconn = DConnect(connect = args.delphitrack)
-            for i in range(len(camera_track_list)):
-                camera_track_list[i][1].set_connect(dconn.get_conn()) # reset track connection
+            except BrokenPipeError:
+                log.error("Lost Connection to Track")
+                dconn.close_socket()
+                dconn = DConnect(connect = args.track)
+                for i in range(len(camera_track_list)):
+                    camera_track_list[i][1].set_connect(dconn.get_conn()) # reset track connection
             
-            if args.track:
-                synctck.terminate(); synctck.close()
-                synctck = multiprocessing.Process(target=synctrackmain, args=(dconn,False), daemon=True)
-                synctck.start()
-                log.info("Restarted synctrack process")              
+                if args.track:
+                    synctck.terminate(); synctck.close()
+                    synctck = multiprocessing.Process(target=synctrackmain, args=(dconn,False), daemon=True)
+                    synctck.start()
+                    log.info("Restarted synctrack process")              
  
-        except RuntimeError:
-            if camera.error_flag == 0:
-                log.exception(f"Runtime Error for {camera.deviceID}")
-                camera.device.close() # close device
-                camera.error_flag = 1
-            if camera.device.isClosed() and camera.deviceID in getOakDeviceIds(): # TO DO - make non-blocking
-                log.info(f"Found {camera.deviceID} - Reconnecting to OAK Pipeline")
-                camera.device = dai.Device(camera.pipeline, camera.device_info)
-                camera.start_pipeline()
-                camera.error_flag = 0
+            except RuntimeError:
+                if camera.error_flag == 0:
+                    log.exception(f"Runtime Error for {camera.deviceID}")
+                    camera.device.close() # close device
+                    camera.error_flag = 1
+                if camera.device.isClosed() and camera.deviceID in getOakDeviceIds(): # TO DO - make non-blocking
+                    log.info(f"Found {camera.deviceID} - Reconnecting to OAK Pipeline")
+                    camera.device = dai.Device(camera.pipeline, camera.device_info)
+                    camera.start_pipeline()
+                    camera.error_flag = 0
         
-        except:
-            log.exception(f"New exception")
-            break
+            except:
+                log.exception(f"New exception")
+                should_run = False; break
 
     dconn.close_socket()
     

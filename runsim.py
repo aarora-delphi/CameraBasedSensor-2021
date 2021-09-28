@@ -8,7 +8,6 @@ import numpy as np
 import time
 from datetime import datetime
 import argparse
-import imutils
 import multiprocessing
 
 ### local-packages
@@ -303,7 +302,7 @@ if __name__ == "__main__":
             except BrokenPipeError:
                 log.error("Lost Connection to Track")
                 dconn.close_socket()
-                dconn = DConnect(connect = args.delphitrack)
+                dconn = DConnect(connect = args.track)
                 for i in range(len(camera_track_list)):
                     camera_track_list[i][1].set_connect(dconn.get_conn()) # reset track connection
             
