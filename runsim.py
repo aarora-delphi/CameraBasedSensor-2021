@@ -266,16 +266,17 @@ def getCam(device_id, args, count):
 if __name__ == "__main__":
     args = parse_arguments()
     dconn = DConnect(connect = args.track)
-    camera_track_list = []
-    create_camera_track_list(camera_track_list, args)
-    should_run = True
-    
-    videoComplete = [] # store finished OAK videos
     
     if args.track:
         synctck = multiprocessing.Process(target=synctrackmain, args=(dconn,True), daemon=True)
         synctck.start()
         log.info("Started synctrack process")
+    
+    camera_track_list = []
+    create_camera_track_list(camera_track_list, args)
+    should_run = True
+    
+    videoComplete = [] # store finished OAK videos
     
     while should_run:
         for (camera, track) in camera_track_list:
@@ -301,16 +302,20 @@ if __name__ == "__main__":
 
             except BrokenPipeError:
                 log.error("Lost Connection to Track")
+                
+                if args.track:
+                    synctck.terminate(); synctck.close()
+                    log.info(f"Terminated synctrack Process - {synctck} {synctck.is_alive()}")
+                
                 dconn.close_socket()
                 dconn = DConnect(connect = args.track)
                 for i in range(len(camera_track_list)):
                     camera_track_list[i][1].set_connect(dconn.get_conn()) # reset track connection
-            
-                if args.track:
-                    synctck.terminate(); synctck.close()
+                
+                if args.track:                    
                     synctck = multiprocessing.Process(target=synctrackmain, args=(dconn,False), daemon=True)
                     synctck.start()
-                    log.info("Restarted synctrack process")              
+                    log.info("Restarted synctrack Process")              
  
             except RuntimeError:
                 if camera.error_flag == 0:
