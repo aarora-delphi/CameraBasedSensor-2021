@@ -382,7 +382,9 @@ if __name__ == "__main__":
                 log.error("Lost Connection to Track")
 
                 if args.track:
-                    synctck.terminate(); synctck.close()
+                    synctck.terminate()
+                    time.sleep(0.5)
+                    synctck.close()
                     log.info(f"Terminated synctrack Process")
                 
                 dconn.close_socket()
