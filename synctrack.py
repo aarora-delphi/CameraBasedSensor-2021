@@ -52,11 +52,13 @@ class TrackSync():
         log.info(f"TRACK MESSAGE RECEIVED: {self.message}")
         
         if self.message == '{"get":"serialnumber"}':
-            self.send_response(response={ "serialnumber": "GXXXX301XXXXX" }, encode_type = 'json')
-        
+            #self.send_response(response={ "serialnumber": "GXXXX301XXXXX" }, encode_type = 'json')
+            self.send_response(response='{"serialnumber":"GXXXX301XXXXX"}', encode_type = 'str')        
+
         if self.message == '{"get":"partnumber"}':
-            self.send_response(response={ "partnumber": "2500-TIU-2000" }, encode_type = 'json')
-        
+            #self.send_response(response={ "partnumber": "2500-TIU-2000" }, encode_type = 'json')
+            self.send_response(response='{"partnumber":"2500-TIU-2000"}', encode_type = 'str')         
+
         if self.message == '{"get":"firmwarepartno"}':
             self.send_response(response={ "firmwarepartno" : "xxxxxx" }, encode_type = 'json')
 
@@ -131,9 +133,11 @@ class TrackSync():
             to_send = bytes.fromhex(response)
         elif encode_type == 'json':
             to_send = json.dumps(response).encode()
+        elif encode_type == 'str':
+            to_send = bytes(response+'\n', encoding='utf-8')
         
         self.conn.sendall(to_send)
-        log.info(f"SENT RESPONSE: {response}")
+        log.info(f"SENT RESPONSE: {response} - Encoded as {to_send}")
 
     def receive_message(self, timeout_sec = 2, decode_type = 'hex'):
         """
@@ -141,7 +145,7 @@ class TrackSync():
         """
         return timeout(timeout_sec)(self.receive_message_operation)(decode_type) # timeout decorator applied
 	
-    def receive_message_operation(self, type):
+    def receive_message_operation(self, decode_type):
         """
             Receive a Message from Insight Track
         """
@@ -149,10 +153,14 @@ class TrackSync():
         while True:
             data = self.conn.recv(1)
             
-            if type == 'hex':
+            if decode_type == 'hex':
                 self.message += data.hex()
-            elif type == 'text':
+            elif decode_type == 'text':
                 self.message += data.decode()
+                
+                if data.decode() == '}':
+                    log.info("Found '}' Brace in recv")
+                    break
             
             if not data and self.message != "":
                 break
