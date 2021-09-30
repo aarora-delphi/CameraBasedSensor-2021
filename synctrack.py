@@ -53,9 +53,12 @@ class TrackSync():
         
         if self.message == '{"get":"serialnumber"}':
             self.send_response(response={ "serialnumber": "GXXXX301XXXXX" }, encode_type = 'json')
+        
         if self.message == '{"get":"partnumber"}':
             self.send_response(response={ "partnumber": "2500-TIU-2000" }, encode_type = 'json')
-
+        
+        if self.message == '{"get":"firmwarepartno"}':
+            self.send_response(response={ "firmwarepartno" : "xxxxxx" }, encode_type = 'json')
 
     def sync_time(self):
         """
@@ -214,8 +217,8 @@ def synctrackmain(dconn, boot = True):
     if boot:
         status = strack.sync_on_boot()
         #mend_status(status, dconn, strack)
-        ###strack.send_response(response={ "partnumber": "2500-TIU-2000" }, encode_type='json')
-        ###strack.send_response(response={ "serialnumber": "GXXXX301XXXXX" }, encode_type='json')
+        ### strack.send_response(response={ "partnumber": "2500-TIU-2000" }, encode_type='json')
+        ### strack.send_response(response={ "serialnumber": "GXXXX301XXXXX" }, encode_type='json')
 
     while True:
         status = strack.sync_on_recv()

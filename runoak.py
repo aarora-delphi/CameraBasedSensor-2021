@@ -379,7 +379,7 @@ if __name__ == "__main__":
 
                 if args.track:
                     synctck.terminate(); synctck.close()
-                    log.info(f"Terminated synctrack Process - {synctck} {synctck.is_alive()}")
+                    log.info(f"Terminated synctrack Process")
                 
                 dconn.close_socket()
                 dconn = DConnect(connect = args.track)
