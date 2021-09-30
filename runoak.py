@@ -389,13 +389,15 @@ if __name__ == "__main__":
                 
                 dconn.close_socket()
                 dconn = DConnect(connect = args.track)
-                for i in range(len(camera_track_list)):
-                    camera_track_list[i][1].set_connect(dconn.get_conn()) # reset track connection
             
                 if args.track:
                     synctck = multiprocessing.Process(target=synctrackmain, args=(dconn,False), daemon=True)
                     synctck.start()
-                    log.info("Restarted synctrack Process")              
+                    log.info("Restarted synctrack Process")  
+                
+                time.sleep(0.5)
+                for i in range(len(camera_track_list)):
+                    camera_track_list[i][1].set_connect(dconn.get_conn()) # reset track connection            
  
             except RuntimeError:
                 if camera.error_flag == 0:
