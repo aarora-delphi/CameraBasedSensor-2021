@@ -137,7 +137,7 @@ class OakSim(Oak):
         if self.play_video != None:
             self.qIn_Frame = self.device.getInputQueue(name="inFrame", maxSize=4, blocking=False)
         else:
-            self.trigger_autofocus()
+            self.set_autofocus(lensPosition = 150)
             
         self.startTime = time.monotonic()
         self.counter = 0

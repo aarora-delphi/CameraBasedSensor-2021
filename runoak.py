@@ -116,17 +116,21 @@ class Oak():
     
         self.startTime = time.monotonic()
         self.counter = 0
-        self.trigger_autofocus()
+        self.set_autofocus(lensPosition = 150)
     
-    def trigger_autofocus(self):
+    def set_autofocus(self, lensPosition = None):
         """
-            Trigger autofocus and disable continuous autofocus
+            Set the lens position for Manual Focus
+            If no lensPosition set then default is continuous autofocus
+            lensPosition: int between 0 and 255 inclusive
         """
-        log.info("Autofocus triggered (and continuous autofocus disabled)")
-        ctrl = dai.CameraControl()
-        ctrl.setAutoFocusMode(dai.CameraControl.AutoFocusMode.AUTO)
-        ctrl.setAutoFocusTrigger()
-        self.controlQueue.send(ctrl)    
+        if type(lensPosition) == int:
+            log.info(f"Manual Autofocus set to {lensPosition}")
+            ctrl = dai.CameraControl()
+            ctrl.setManualFocus(lensPosition)
+            self.controlQueue.send(ctrl) 
+        else:
+             log.info(f"Continuous Autofocus Enabled")  
           
     def inference(self, show_display = False):
         """
