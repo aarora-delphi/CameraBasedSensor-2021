@@ -122,8 +122,6 @@ class OakSim(Oak):
             Output Queues used for requesting frame and detections
         """
         log.info("Starting OAK Pipeline...")
-        # Start pipeline
-        ### self.device.startPipeline() # Deprecation Warning shown if included
 
         # Output queues will be used to get the rgb frames and nn data from the
         # output streams defined above.
@@ -137,7 +135,7 @@ class OakSim(Oak):
         if self.play_video != None:
             self.qIn_Frame = self.device.getInputQueue(name="inFrame", maxSize=4, blocking=False)
         else:
-            self.set_autofocus(lensPosition = 150)
+            self.set_autofocus()
             
         self.startTime = time.monotonic()
         self.counter = 0

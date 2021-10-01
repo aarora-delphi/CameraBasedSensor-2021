@@ -26,6 +26,7 @@ class Oak():
         self.deviceID = deviceID
         self.station = pickle_util.load(f"storage-oak/station_{self.deviceID}.pb", error_return = '255')
         self.drawroi_running = False
+        self.lensPosition = None
         
         self.ROI = [[50, 50], [250, 50], [250, 250], [50, 250]] # sample ROI
         self.set_roi() # sets last saved ROI
@@ -105,7 +106,6 @@ class Oak():
             Output Queues used for requesting frame and detections
         """
         log.info("Starting OAK Pipeline...")
-        ### self.device.startPipeline() # Deprecation Warning shown if included
 
         # Output queues get the rgb frames and nn data from the defined output streams.
         self.controlQueue = self.device.getInputQueue('control')
@@ -116,21 +116,24 @@ class Oak():
     
         self.startTime = time.monotonic()
         self.counter = 0
-        self.set_autofocus(lensPosition = 150)
+        self.set_autofocus()
     
-    def set_autofocus(self, lensPosition = None):
+    def set_autofocus(self):
         """
             Set the lens position for Manual Focus
             If no lensPosition set then default is continuous autofocus
-            lensPosition: int between 0 and 255 inclusive
         """
-        if type(lensPosition) == int:
-            log.info(f"Manual Autofocus set to {lensPosition}")
+        lensPosition = pickle_util.load(f"storage-oak/focus_{self.deviceID}.pb", error_return = None)
+        
+        if lensPosition == self.lensPosition:
+            return
+        
+        if type(lensPosition) == int and lensPosition >= 0 and lensPosition <= 255:
+            self.lensPosition = lensPosition
+            log.info(f"Manual Focus set to {lensPosition}")
             ctrl = dai.CameraControl()
             ctrl.setManualFocus(lensPosition)
-            self.controlQueue.send(ctrl) 
-        else:
-             log.info(f"Continuous Autofocus Enabled")  
+            self.controlQueue.send(ctrl)
           
     def inference(self, show_display = False):
         """
@@ -171,6 +174,7 @@ class Oak():
             if self.counter % 30 == 0: # perform action every ~1 second
                 cv2.imwrite(f"storage-oak/{self.deviceID}.png", self.frame)
                 self.set_roi()
+                self.set_autofocus()
     
     def set_roi(self):
         """
@@ -353,12 +357,10 @@ if __name__ == "__main__":
     args = parse_arguments()
     dconn = DConnect(connect = args.track)
     
-    ### testing synctrack
     if args.track:
         synctck = multiprocessing.Process(target=synctrackmain, args=(dconn,True), daemon=True)
         synctck.start()
         log.info("Started synctrack process")
-    ###
     
     camera_track_list = []
     create_camera_track_list(camera_track_list, args)
