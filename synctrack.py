@@ -35,9 +35,8 @@ class TrackSync():
         self.heartbeatCounter = 0
         currentTime = time.monotonic()
         if currentTime - self.startTime > second_interval:
-            log.info(f"Sending Heartbeat")
             self.startTime = currentTime
-            self.send_response(response = '000xxxxxxxxxxxxxxxxxx', encode_type = 'str')
+            self.send_response(response = '000000000000000000000', encode_type = 'str')
 
     def sync_on_heartbeat(self):
         return self.sync_wrapper(self.heartbeat)
