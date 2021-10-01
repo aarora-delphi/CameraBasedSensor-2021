@@ -49,6 +49,8 @@ class MyApp(Tk):
         self.currentImage = {}
         self.initialize_controls()
         self.refresh_gui()
+        
+        self.can_refresh = True
 
     def refresh_gui(self):
         """
@@ -130,7 +132,7 @@ class MyApp(Tk):
         focus_num = self.focus_dict[self.focus_var.get()]
         pickle_util.save(f"storage-oak/focus_{self.name}.pb", focus_num)
         
-        self.set_view()
+        self.after(2*1000, self.set_view)
 
     def station_load(self):
         """
@@ -287,6 +289,8 @@ class MyApp(Tk):
         self.anchor = (event.widget.canvasx(event.x),
                        event.widget.canvasy(event.y))
         self.item = None
+        
+        self.can_refresh = False
 
     def on_mouse_drag(self, event):  
         """
@@ -312,6 +316,8 @@ class MyApp(Tk):
             
             self.store_bbox(box)
             self.set_view()
+        
+        self.can_refresh = True
 
     def on_right_click(self, event):
         found = event.widget.find_all()
@@ -320,11 +326,23 @@ class MyApp(Tk):
                 event.widget.delete(iid)
 
 
+def refresh_view_on_interval():
+    """
+    Refreshes drawroi view on an interval
+    """
+    seconds_interval = 2
+    if app.can_refresh:
+        app.set_view()    
+    app.after(seconds_interval*1000, refresh_view_on_interval)
+
+
 pickle_util.save("storage-oak/drawroi_running.pb", True) # notifies runoak.py to save frames for tkinter view
 app =  MyApp()
 app.protocol("WM_DELETE_WINDOW", app.on_closing)
 
 try:
+    log.info(f"Refreshing drawroi on Interval")
+    refresh_view_on_interval()
     app.mainloop()
 except KeyboardInterrupt:
     log.info(f"Keyboard Interrupt")
