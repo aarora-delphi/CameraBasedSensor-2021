@@ -18,15 +18,21 @@ class TrackSync():
         self.name = name
         self.set_connect(connect)
         self.startTime = time.monotonic()
+        self.heartbeatCounter = 0
     
     def set_connect(self, connect):
         self.connect = connect != (None, None, None)
         self.s, self.conn, self.addr = connect
 
-    def heartbeat(self, second_interval = 270):
+    def heartbeat(self, second_interval = 240):
         """
-            Sends heartbeat every 4:30 minutes
+            Sends heartbeat every 4 minutes
         """
+        self.heartbeatCounter += 1
+        if self.heartbeatCounter % 30 != 0:
+            return
+            
+        self.heartbeatCounter = 0
         currentTime = time.monotonic()
         if currentTime - self.startTime > second_interval:
             log.info(f"Sending Heartbeat")
