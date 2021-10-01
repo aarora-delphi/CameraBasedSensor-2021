@@ -17,10 +17,24 @@ class TrackSync():
     def __init__(self, name = "Track1", connect = (None, None, None)):
         self.name = name
         self.set_connect(connect)
+        self.startTime = time.monotonic()
     
     def set_connect(self, connect):
         self.connect = connect != (None, None, None)
         self.s, self.conn, self.addr = connect
+
+    def heartbeat(self, second_interval = 270):
+        """
+            Sends heartbeat every 4:30 minutes
+        """
+        currentTime = time.monotonic()
+        if currentTime - self.startTime > second_interval:
+            log.info(f"Sending Heartbeat")
+            self.startTime = currentTime
+            self.send_response(response = '000xxxxxxxxxxxxxxxxxx', encode_type = 'str')
+
+    def sync_on_heartbeat(self):
+        return self.sync_wrapper(self.heartbeat)
 
     def sync_on_boot(self):
         """
@@ -42,7 +56,7 @@ class TrackSync():
         """
 
         try:
-            self.receive_message(timeout_sec = 1, decode_type = 'text')
+            self.receive_message(timeout_sec = 1, decode_type = 'str')
         except TimeoutError:
             pass
             
@@ -52,15 +66,15 @@ class TrackSync():
         log.info(f"TRACK MESSAGE RECEIVED: {self.message}")
         
         if self.message == '{"get":"serialnumber"}':
-            #self.send_response(response={ "serialnumber": "GXXXX301XXXXX" }, encode_type = 'json')
             self.send_response(response='{"serialnumber":"GXXXX301XXXXX"}', encode_type = 'str')        
 
         if self.message == '{"get":"partnumber"}':
-            #self.send_response(response={ "partnumber": "2500-TIU-2000" }, encode_type = 'json')
             self.send_response(response='{"partnumber":"2500-TIU-2000"}', encode_type = 'str')         
 
         if self.message == '{"get":"firmwarepartno"}':
-            self.send_response(response={ "firmwarepartno" : "xxxxxx" }, encode_type = 'json')
+            self.send_response(response='{"firmwarepartno":"xxxxxx"}', encode_type = 'str')
+        
+
 
     def sync_time(self):
         """
@@ -131,8 +145,6 @@ class TrackSync():
         """
         if encode_type == 'hex':
             to_send = bytes.fromhex(response)
-        elif encode_type == 'json':
-            to_send = json.dumps(response).encode()
         elif encode_type == 'str':
             to_send = bytes(response+'\n', encoding='utf-8')
         
@@ -155,7 +167,7 @@ class TrackSync():
             
             if decode_type == 'hex':
                 self.message += data.hex()
-            elif decode_type == 'text':
+            elif decode_type == 'str':
                 self.message += data.decode()
                 
                 if data.decode() == '}':
@@ -225,13 +237,12 @@ def synctrackmain(dconn, boot = True):
     if boot:
         status = strack.sync_on_boot()
         #mend_status(status, dconn, strack)
-        ### strack.send_response(response={ "partnumber": "2500-TIU-2000" }, encode_type='json')
-        ### strack.send_response(response={ "serialnumber": "GXXXX301XXXXX" }, encode_type='json')
 
     while True:
+        status = strack.sync_on_heartbeat()
         status = strack.sync_on_recv()
         if not mend_status(status, dconn, strack):
-            log.info(f"Exiting Loop")
+            log.info(f"Exiting synctrack Loop")
             break
 
 if __name__ == "__main__":

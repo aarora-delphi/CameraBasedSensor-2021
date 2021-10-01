@@ -132,7 +132,7 @@ class MyApp(Tk):
         focus_num = self.focus_dict[self.focus_var.get()]
         pickle_util.save(f"storage-oak/focus_{self.name}.pb", focus_num)
         
-        self.after(2*1000, self.set_view)
+        self.after(3*1000, self.set_view) # 3 second delay
 
     def station_load(self):
         """

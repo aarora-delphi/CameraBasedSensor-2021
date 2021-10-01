@@ -209,6 +209,9 @@ class OakSim(Oak):
 	    return crop_img
 
     def release_resources(self):
+        """
+            Releases the video buffer if present and closes device
+        """
         # release video buffer to save video
         if self.save_video != None:
             self.video_buffer.release()
@@ -218,6 +221,9 @@ class OakSim(Oak):
         self.device.close() # close device
 
 def parse_arguments():
+    """
+        Parses Command Line Arguments
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument('-track', '--track', action="store_true", help="Send messages to track system")
     parser.add_argument('-record', '--record', choices=['360p', '720p', '1080p'], default = None, help="Save Recording of connected OAK")
@@ -232,7 +238,10 @@ def parse_arguments():
        
     return args
 
-def create_camera_track_list(camera_track_list, args):
+def create_camera_track_list(camera_track_list, args, dconn_info, ignore_station = ['255'], order_station = False):
+    """
+        Initializes list of Oak and DTrack Objects for each OAK Device
+    """
     oak_device_ids = getOakDeviceIds()
     log.info(f"Found {len(oak_device_ids)} OAK DEVICES - {oak_device_ids}")
     pickle_util.save("storage-oak/device_id.pb", oak_device_ids)
@@ -240,24 +249,26 @@ def create_camera_track_list(camera_track_list, args):
 
     def order_oak_by_station(elem):
         station = pickle_util.load(f"storage-oak/station_{elem}.pb", error_return = '255')
-        if station == '000':
-            return 255
-        return int(station)
+        return int(station) if station != '000' else 255
 
-    oak_device_ids.sort(key=order_oak_by_station)
-        
+    if order_station:
+        oak_device_ids.sort(key=order_oak_by_station)    
+
     for count, device_id in enumerate(oak_device_ids):
         station = pickle_util.load(f"storage-oak/station_{device_id}.pb", error_return = '255')
         log.info(f"OAK DEVICE: {device_id} - STATION: {station}")
-        if station in ['255', '000']:
+        if station in ignore_station:
             log.error(f"Invalid Station {station} - Abort {device_id} Initialization")
             continue
-        
+
         cam = getCam(device_id, args, count); cam.organize_pipeline()
-        tck = DTrack(name = station, connect = dconn.get_conn())
+        tck = DTrack(name = station, connect = dconn_info)
         camera_track_list.append([cam, tck])
 
 def getCam(device_id, args, count):
+    """
+        Returns the Oak Object
+    """
     return OakSim(deviceID = device_id, save_video = args.record, play_video = args.video, \
                   speed = args.speed, skip = args.skip*count, loop = args.loop) 
 
@@ -271,7 +282,7 @@ if __name__ == "__main__":
         log.info("Started synctrack process")
     
     camera_track_list = []
-    create_camera_track_list(camera_track_list, args)
+    create_camera_track_list(camera_track_list, args, dconn.get_conn(), ignore_station = ['255', '000'], order_station = True)
     should_run = True
     
     videoComplete = [] # store finished OAK videos
