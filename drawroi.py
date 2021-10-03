@@ -341,8 +341,8 @@ app =  MyApp()
 app.protocol("WM_DELETE_WINDOW", app.on_closing)
 
 try:
-    log.info(f"Refreshing drawroi on Interval")
-    refresh_view_on_interval()
+    #log.info(f"Refreshing drawroi on Interval")
+    #refresh_view_on_interval()
     app.mainloop()
 except KeyboardInterrupt:
     log.info(f"Keyboard Interrupt")
