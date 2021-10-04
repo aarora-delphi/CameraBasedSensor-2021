@@ -95,14 +95,14 @@ class TrackSync():
             self.send_response(response='hello', encode_type = 'str')
         
         # boot sync
-        elif message == '1001053030303030301003C8':
+        elif message == '1001053030303030301003c8':
             self.send_response(response = '1006051003E8') # response 1
 
         elif len(message) == 40 and message[:6] == '100110':
             self.send_response(response = '1006101003DD') # response 2
             self.apply_sync_datetime(message)
 
-        elif message == '1001061003E7':
+        elif message == '1001061003e7':
             self.send_response(response = '1006061003E7') # response 3
             
 
