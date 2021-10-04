@@ -171,7 +171,7 @@ class TrackSync():
         message_parsed["month"]         = message_int[13] + 1 # range is 0-11 in java
         message_parsed["year"]          = year_int
     
-        log.info("MESSAGE 2 PARSED: ", message_parsed)
+        log.info(f"MESSAGE 2 PARSED: {message_parsed}")
     
         return message_parsed
 
@@ -298,11 +298,11 @@ def synctrackmain(dconn, boot = True):
                             message = data.hex()
                         
                         strack.evaluate_message(message)
-
-                    else:
-                        log.info(f"Closing {s}")
-                        s.close()
-                        read_list.remove(s)   
+                    
+                    #else:
+                    #    log.info(f"Closing {s}")
+                    #    s.close()
+                    #    read_list.remove(s)   
                 
                 except (BrokenPipeError, ConnectionResetError) as e:
                     log.error(f'{e} - Closing {s}')
