@@ -82,17 +82,29 @@ class TrackSync():
         if message == '{"get":"serialnumber"}':
             self.send_response(response='{"serialnumber":"GXXXX301XXXXX"}', encode_type = 'str')        
 
-        if message == '{"get":"partnumber"}':
+        elif message == '{"get":"partnumber"}':
             self.send_response(response='{"partnumber":"2500-TIU-2000"}', encode_type = 'str')         
 
-        if message == '{"get":"firmwarepartno"}':
+        elif message == '{"get":"firmwarepartno"}':
             self.send_response(response='{"firmwarepartno":"xxxxxx"}', encode_type = 'str')
         
-        if message == 'hello':
+        elif message == 'hello':
             self.send_response(response='goodbye', encode_type = 'str')
         
-        if message == 'goodbye':
+        elif message == 'goodbye':
             self.send_response(response='hello', encode_type = 'str')
+        
+        # boot sync
+        elif message == '1001053030303030301003C8':
+            self.send_response(response = '1006051003E8') # response 1
+
+        elif len(message) == 40 and message[:6] == '100110':
+            self.send_response(response = '1006101003DD') # response 2
+            self.apply_sync_datetime(message)
+
+        elif message == '1001061003E7':
+            self.send_response(response = '1006061003E7') # response 3
+            
 
     def sync_time(self):
         """
@@ -117,7 +129,13 @@ class TrackSync():
 
         log.info(f"MESSAGE123 - {message1} {message2} {message3}")
         assert message123 == message1 + message2 + message3
+        
+        self.apply_sync_datetime(message2)
 
+    def apply_sync_datetime(self, message2):
+        """
+           Apply the datetime received from Delphi Track to sync clocks 
+        """
         m2hash = self.parse_message2(message2)
         dt_date = f"{m2hash['year']}-{m2hash['month']:02d}-{m2hash['dayofmonth']:02d}"
         dt_time = f"{m2hash['hour']:02d}:{m2hash['minute']:02d}:{m2hash['second']:02d}"
@@ -274,7 +292,12 @@ def synctrackmain(dconn, boot = True):
                     data = s.recv(1024)
                     log.info(f"Received - {data}")
                     if data:
-                        strack.evaluate_message(data.decode())
+                        try:
+                            message = data.decode()
+                        except UnicodeDecodeError:
+                            message = data.hex()
+                        
+                        strack.evaluate_message(message)
 
                     else:
                         log.info(f"Closing {s}")
