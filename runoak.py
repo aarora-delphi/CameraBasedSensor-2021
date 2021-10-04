@@ -132,6 +132,7 @@ class Oak():
             self.lensPosition = lensPosition
             log.info(f"Manual Focus set to {lensPosition}")
             ctrl = dai.CameraControl()
+            ctrl.setAutoFocusMode(dai.CameraControl.AutoFocusMode.OFF)
             ctrl.setManualFocus(lensPosition)
             self.controlQueue.send(ctrl)
           

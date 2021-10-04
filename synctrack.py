@@ -6,6 +6,7 @@ import socket
 import json
 import re
 import subprocess
+import select
 
 ### local-packages
 from timeout import timeout, TimeoutError
@@ -67,19 +68,31 @@ class TrackSync():
             
         if self.message == "": 
             return
-
-        log.info(f"TRACK MESSAGE RECEIVED: {self.message}")
         
-        if self.message == '{"get":"serialnumber"}':
+        self.evaluate_message(self.message)
+        
+        
+    def evaluate_message(self, message):
+        """
+            Given a message, evaluate response to send
+        """       
+        
+        log.info(f"TRACK MESSAGE RECEIVED: {message}")
+        
+        if message == '{"get":"serialnumber"}':
             self.send_response(response='{"serialnumber":"GXXXX301XXXXX"}', encode_type = 'str')        
 
-        if self.message == '{"get":"partnumber"}':
+        if message == '{"get":"partnumber"}':
             self.send_response(response='{"partnumber":"2500-TIU-2000"}', encode_type = 'str')         
 
-        if self.message == '{"get":"firmwarepartno"}':
+        if message == '{"get":"firmwarepartno"}':
             self.send_response(response='{"firmwarepartno":"xxxxxx"}', encode_type = 'str')
         
-
+        if message == 'hello':
+            self.send_response(response='goodbye', encode_type = 'str')
+        
+        if message == 'goodbye':
+            self.send_response(response='hello', encode_type = 'str')
 
     def sync_time(self):
         """
@@ -241,14 +254,55 @@ def synctrackmain(dconn, boot = True):
     strack = TrackSync(connect = dconn.get_conn())
     if boot:
         status = strack.sync_on_boot()
-        #mend_status(status, dconn, strack)
-
-    while True:
-        status = strack.sync_on_heartbeat()
-        status = strack.sync_on_recv()
         if not mend_status(status, dconn, strack):
-            log.info(f"Exiting synctrack Loop")
-            break
+            log.info(f"Issue with Boot Sync - Continuing")
+            
+    log.info("Starting Sync Event Loop")
+    
+    read_list = [dconn.s, dconn.conn]
+    while True:
+        ### start of new select loop - testing
+        readable, writable, errored = select.select(read_list, [], [], 0) # non-blocking
+        
+        for s in readable:
+            if s is dconn.s:
+                client_socket, address = dconn.accept_conn()
+                read_list.append(client_socket)
+            else:
+                strack.conn = s # set connection to use
+                try:
+                    data = s.recv(1024)
+                    log.info(f"Received - {data}")
+                    if data:
+                        strack.evaluate_message(data.decode())
+
+                    else:
+                        log.info(f"Closing {s}")
+                        s.close()
+                        read_list.remove(s)   
+                
+                except (BrokenPipeError, ConnectionResetError) as e:
+                    log.error(f'{e} - Closing {s}')
+                    s.close()
+                    read_list.remove(s) 
+
+        strack.conn = dconn.conn
+        status = strack.sync_on_heartbeat() 
+        ### end of new select loop
+ 
+            #else:
+            #    strack.conn = s
+            #    status = strack.sync_on_recv()
+            #    if not mend_status(status, dconn, strack):
+            #        print(f"Closing {s}")
+            #        s.close()
+            #        read_list.remove(s)
+        
+        ###status = strack.sync_on_heartbeat()
+        ###status = strack.sync_on_recv()
+        ###if not mend_status(status, dconn, strack):
+        ###    log.info(f"Exiting synctrack Loop")
+        ###    break
 
 if __name__ == "__main__":
     dconn = DConnect(connect = True)

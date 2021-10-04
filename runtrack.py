@@ -34,9 +34,16 @@ class DConnect():
         ### self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1) # allows multiple listen to same port
         self.s.bind((self.HOST, self.PORT))
-        self.s.listen(1)
-        self.conn, self.addr = self.s.accept()
-        log.info("Found Delphi Track - Connection from: " + str(self.addr))
+        self.s.listen(2)
+        self.conn, self.addr = self.accept_conn()
+    
+    def accept_conn(self):
+        """
+            Accept connection
+        """
+        conn, addr = self.s.accept()
+        log.info("Found Connection from: " + str(addr))  
+        return conn, addr
     
     def get_conn(self):
         """
