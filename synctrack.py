@@ -76,6 +76,7 @@ class TrackSync():
         """
             Given a message, evaluate response to send
         """       
+        message = message.rstrip() # remove newline / tab char
         
         log.info(f"TRACK MESSAGE RECEIVED: {message}")
         
@@ -93,6 +94,9 @@ class TrackSync():
         
         elif message == 'goodbye':
             self.send_response(response='hello', encode_type = 'str')
+        
+        elif len(message) == 11 and message[:6] == 'Event|':
+            event = message[6:] # TO DO - Event Retrieval
         
         # boot sync
         elif message == '1001053030303030301003c8':
@@ -290,7 +294,7 @@ def synctrackmain(dconn, boot = True):
                 strack.conn = s # set connection to use
                 try:
                     data = s.recv(1024)
-                    log.info(f"Received - {data}")
+                    print(f"Received - {data}")
                     if data:
                         try:
                             message = data.decode()
