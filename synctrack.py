@@ -299,10 +299,13 @@ def synctrackmain(dconn, boot = True):
                         
                         strack.evaluate_message(message)
                     
-                    #else:
-                    #    log.info(f"Closing {s}")
-                    #    s.close()
-                    #    read_list.remove(s)   
+                    elif s == dconn.conn:
+                        pass
+                    
+                    else:
+                        log.info(f"Closing {s}")
+                        s.close()
+                        read_list.remove(s)   
                 
                 except (BrokenPipeError, ConnectionResetError) as e:
                     log.error(f'{e} - Closing {s}')
