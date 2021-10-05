@@ -238,7 +238,7 @@ def parse_arguments():
        
     return args
 
-def create_camera_track_list(camera_track_list, args, dconn_info, ignore_station = ['255'], order_station = False):
+def create_camera_track_list(camera_track_list, args, ignore_station = ['255'], order_station = False):
     """
         Initializes list of Oak and DTrack Objects for each OAK Device
     """
@@ -262,7 +262,7 @@ def create_camera_track_list(camera_track_list, args, dconn_info, ignore_station
             continue
 
         cam = getCam(device_id, args, count); cam.organize_pipeline()
-        tck = DTrack(name = station, connect = dconn_info)
+        tck = DTrack(name = station, connect = args.track)
         camera_track_list.append([cam, tck])
 
 def getCam(device_id, args, count):
@@ -274,15 +274,16 @@ def getCam(device_id, args, count):
 
 if __name__ == "__main__":
     args = parse_arguments()
-    dconn = DConnect(connect = args.track)
+    ### dconn = DConnect(connect = args.track)
     
     if args.track:
-        synctck = multiprocessing.Process(target=synctrackmain, args=(dconn,True), daemon=True)
+        work_queue = multiprocessing.Queue()
+        synctck = multiprocessing.Process(target=synctrackmain, args=(work_queue,True), daemon=True)
         synctck.start()
         log.info("Started synctrack process")
     
     camera_track_list = []
-    create_camera_track_list(camera_track_list, args, dconn.get_conn(), ignore_station = ['255', '000'], order_station = True)
+    create_camera_track_list(camera_track_list, args, ignore_station = ['255', '000'], order_station = True)
     should_run = True
     
     videoComplete = [] # store finished OAK videos
@@ -292,7 +293,9 @@ if __name__ == "__main__":
             try:
                 camera.inference()
                 numCars = camera.detect_intersections(show_display = True)
-                track.log_car_detection(numCars)
+                to_send = track.log_car_detection(numCars)
+                if to_send != None and args.track:
+                    work_queue.put(to_send) 
                 
                 if cv2.waitKey(1) == ord('q'):
                     should_run = False; break  
@@ -309,26 +312,26 @@ if __name__ == "__main__":
                 log.info(f"Keyboard Interrupt")
                 should_run = False; break
 
-            except BrokenPipeError:
-                log.error("Lost Connection to Track")
-                
-                if args.track:
-                    synctck.terminate()
-                    time.sleep(0.5)
-                    synctck.close()
-                    log.info(f"Terminated synctrack Process")
-                
-                dconn.close_socket()
-                dconn = DConnect(connect = args.track)
-                
-                if args.track:                    
-                    synctck = multiprocessing.Process(target=synctrackmain, args=(dconn,False), daemon=True)
-                    synctck.start()
-                    log.info("Restarted synctrack Process")              
-
-                time.sleep(0.5)
-                for i in range(len(camera_track_list)):
-                    camera_track_list[i][1].set_connect(dconn.get_conn()) # reset track connection
+            #except BrokenPipeError:
+            #    log.error("Lost Connection to Track")
+            #    
+            #    if args.track:
+            #        synctck.terminate()
+            #        time.sleep(0.5)
+            #        synctck.close()
+            #        log.info(f"Terminated synctrack Process")
+            #    
+            #    dconn.close_socket()
+            #    dconn = DConnect(connect = args.track)
+            #    
+            #    if args.track:                    
+            #        synctck = multiprocessing.Process(target=synctrackmain, args=(dconn,False), daemon=True)
+            #        synctck.start()
+            #        log.info("Restarted synctrack Process")              
+            #
+            #    time.sleep(0.5)
+            #    for i in range(len(camera_track_list)):
+            #        camera_track_list[i][1].set_connect(dconn.get_conn()) # reset track connection
  
             except RuntimeError:
                 if camera.error_flag == 0:
@@ -345,7 +348,7 @@ if __name__ == "__main__":
                 log.exception(f"New Exception")
                 should_run = False; break          
 
-    dconn.close_socket()
+    # dconn.close_socket()
     
     for (camera, track) in camera_track_list:
         camera.release_resources()

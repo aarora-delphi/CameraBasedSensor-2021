@@ -211,11 +211,11 @@ class TrackSync():
         if self.resend_message and self.last_vehicle_message != None:
             self.resend_message = False
             self.message_conn.sendall(self.last_vehicle_message)
-            log.info(f"RESENT MESSAGE: {self.last_message}")
+            log.info(f"RESENT VEH MESSAGE: {self.last_vehicle_message}")
             
         self.last_vehicle_message = message
         self.message_conn.sendall(message)
-        log.info(f"SENT MESSAGE: {message}")
+        log.info(f"SENT VEH MESSAGE: {message}")
 
     def close_message_conn(self, conn):
         """
