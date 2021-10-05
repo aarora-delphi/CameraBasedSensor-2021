@@ -215,7 +215,7 @@ class TrackSync():
             
         self.last_vehicle_message = message
         self.message_conn.sendall(message)
-        log.info(f"SENT VEH MESSAGE: {message}")
+        print(f"SENT VEH MESSAGE: {message}")
 
     def close_message_conn(self, conn):
         """
