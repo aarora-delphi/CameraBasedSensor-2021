@@ -64,7 +64,7 @@ class DConnect():
 
 class DTrack():
 
-    def __init__(self, name = '001', connect = (None, None, None)):
+    def __init__(self, name = '001', connect = False): # connect = (None, None, None)):
         self.name = name
         self.resend_message = None
         self.set_connect(connect)
@@ -96,18 +96,20 @@ class DTrack():
     def set_connect(self, connect):
         # set to not connect
         if self.name == '000' or self.name == '255':
-            connect = (None, None, None)
+            connect = False # (None, None, None)
             log.info(f'Track Messaging Disabled for Station {self.name}')
         
         # connect to track system or not
-        self.connect = connect != (None, None, None)
-        self.s, self.conn, self.addr = connect
+        self.connect = connect ### != (None, None, None)
+        ### self.s, self.conn, self.addr = connect
         
         # resend saved message from past failed attempt
+        '''
         if self.connect and self.resend_message != None:
             self.__send_json_message(self.resend_message)
             log.info(f'Resent Saved Message at Station {self.name}')
             self.resend_message = None
+        '''
 
     def __create_track_string(self, json_msg):
         """
@@ -168,12 +170,25 @@ class DTrack():
             
         if self.connect and json_message["status"] != "000":
             json_message["vehicle_id"] = self.get_buffer_position()
-            self.__send_json_message(json_message)
+            to_send = self.__send_json_message(json_message)
         
         if json_message["status"] != "000":
             print(json_message)
             #print(self.__create_track_string(json_message))
 
+        ### messaging to be done in synctrack.py
+        if self.connect and json_message["status"] != "000":
+            return to_send
+
+    ### messaging to be done in synctrack.py
+    def __send_json_message(self, msg):
+        """
+            create track string from message
+        """
+        return self.__create_track_string(msg)
+
+    # commenting out to have messaging done in synctrack.py
+    '''
     def __send_json_message(self, msg):
         """
             sends json message to specified server 's'
@@ -186,4 +201,4 @@ class DTrack():
             log.error(f'{e} on Station {self.name} - Storing Message')
             self.resend_message = msg
             raise BrokenPipeError 
-
+    '''

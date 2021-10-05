@@ -7,6 +7,8 @@ import json
 import re
 import subprocess
 import select
+import multiprocessing
+import queue
 
 ### local-packages
 from timeout import timeout, TimeoutError
@@ -19,21 +21,24 @@ class TrackSync():
         self.name = name
         self.set_connect(connect)
         self.startTime = time.monotonic()
-        self.heartbeatCounter = 0
+        self.resend_message = False
+        self.last_vehicle_message = None
+        #self.heartbeatCounter = 0
     
     def set_connect(self, connect):
         self.connect = connect != (None, None, None)
         self.s, self.conn, self.addr = connect
+        self.message_conn = self.conn
 
     def heartbeat(self, second_interval = 240):
         """
             Sends heartbeat every 4 minutes
         """
-        self.heartbeatCounter += 1
-        if self.heartbeatCounter % 30 != 0:
-            return
-            
-        self.heartbeatCounter = 0
+        #self.heartbeatCounter += 1
+        #if self.heartbeatCounter % 30 != 0:
+        #    return
+        #    
+        #self.heartbeatCounter = 0
         currentTime = time.monotonic()
         if currentTime - self.startTime > second_interval:
             self.startTime = currentTime
@@ -81,7 +86,9 @@ class TrackSync():
         log.info(f"TRACK MESSAGE RECEIVED: {message}")
         
         if message == '{"get":"serialnumber"}':
-            self.send_response(response='{"serialnumber":"GXXXX301XXXXX"}', encode_type = 'str')        
+            self.send_response(response='{"serialnumber":"GXXXX301XXXXX"}', encode_type = 'str')   
+            
+            self.message_conn = self.conn # set the connection to send vehicle messages to
 
         elif message == '{"get":"partnumber"}':
             self.send_response(response='{"partnumber":"2500-TIU-2000"}', encode_type = 'str')         
@@ -92,8 +99,11 @@ class TrackSync():
         elif message == 'hello':
             self.send_response(response='goodbye', encode_type = 'str')
         
-        elif message == 'goodbye':
+        elif message == 'c0 goodbye':
             self.send_response(response='hello', encode_type = 'str')
+            
+            self.message_conn = self.conn # set the connection to send vehicle messages to
+            
         
         elif len(message) == 11 and message[:6] == 'Event|':
             event = message[6:] # TO DO - Event Retrieval
@@ -191,6 +201,30 @@ class TrackSync():
         self.conn.sendall(to_send)
         log.info(f"SENT RESPONSE: {response} - Encoded as {to_send}")
 
+    
+    def send_vehicle_message(self, message):
+        """
+            Send a vehicle message to Insight Track
+        """
+        # TO-DO save message in log file for use in Event| calls
+        
+        if self.resend_message and self.last_vehicle_message != None:
+            self.resend_message = False
+            self.message_conn.sendall(self.last_vehicle_message)
+            log.info(f"RESENT MESSAGE: {self.last_message}")
+            
+        self.last_vehicle_message = message
+        self.message_conn.sendall(message)
+        log.info(f"SENT MESSAGE: {message}")
+
+    def close_message_conn(self, conn):
+        """
+            Close message connection if matching conn
+        """
+        if self.message_conn == conn:
+            self.message_conn = None
+            log.info(f"Closed Message Connection on {conn}")
+
     def receive_message(self, timeout_sec = 2, decode_type = 'hex'):
         """
             Catch method to apply timeout decorator to self.receive_message_operation
@@ -268,12 +302,13 @@ def mend_status(status, dconn, strack):
     
     return True
 
-def synctrackmain(dconn, boot = True):
+def synctrackmain(work_queue, boot = True):
     """
         Main Loop to recv and send messages to Insight Track
     """
-
+    dconn = DConnect(connect = True)
     strack = TrackSync(connect = dconn.get_conn())
+    
     if boot:
         status = strack.sync_on_boot()
         if not mend_status(status, dconn, strack):
@@ -294,8 +329,8 @@ def synctrackmain(dconn, boot = True):
                 strack.conn = s # set connection to use
                 try:
                     data = s.recv(1024)
-                    print(f"Received - {data}")
                     if data:
+                        print(f"Received - {data}")
                         try:
                             message = data.decode()
                         except UnicodeDecodeError:
@@ -303,21 +338,43 @@ def synctrackmain(dconn, boot = True):
                         
                         strack.evaluate_message(message)
                     
-                    elif s == dconn.conn:
+                    elif s == dconn.conn: # in attempt to keep original connection long lasting
                         pass
                     
                     else:
-                        log.info(f"Closing {s}")
+                        log.info(f"No data - Closing {s}")
+                        strack.close_message_conn(s)
                         s.close()
                         read_list.remove(s)   
                 
                 except (BrokenPipeError, ConnectionResetError) as e:
-                    log.error(f'{e} - Closing {s}')
+                    log.error(f"{e} - Closing {s}")
+                    strack.close_message_conn(s)
+                    strack.resend_message = True
                     s.close()
                     read_list.remove(s) 
-
-        strack.conn = dconn.conn
-        status = strack.sync_on_heartbeat() 
+        
+        ### WORKING ON THIS PORTION 
+        try:
+            if strack.message_conn != None:
+                vehicle_message = work_queue.get(block=False)
+                strack.send_vehicle_message(vehicle_message) 
+            else:
+                log.info("No Message Connection - Can't Send Vehicle Message")
+                time.sleep(1)
+                
+        except AttributeError:
+            pass
+        except queue.Empty: 
+            pass
+        ###
+    
+        if strack.message_conn != None:
+            strack.conn = strack.message_conn
+            status = strack.sync_on_heartbeat()
+    
+    dconn.close_socket() # TO DO this portion won't run - work on implementation
+        
         ### end of new select loop
  
             #else:
@@ -335,6 +392,6 @@ def synctrackmain(dconn, boot = True):
         ###    break
 
 if __name__ == "__main__":
-    dconn = DConnect(connect = True)
-    synctrackmain(dconn, boot = True)   
-    dconn.close_socket()
+    # dconn = DConnect(connect = True)
+    synctrackmain(None, boot = True)   
+    # dconn.close_socket()
