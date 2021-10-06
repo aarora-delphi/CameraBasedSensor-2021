@@ -83,6 +83,10 @@ class TrackSync():
         """       
         message = message.rstrip() # remove newline / tab char
         
+        if len(message) == 11 and message[:6] == 'Event|': # TO DO - Handle Event Request
+            print(f"TRACK EVENT REQUESTED: {message}")
+            return
+        
         log.info(f"TRACK MESSAGE RECEIVED: {message}")
         
         if message == '{"get":"serialnumber"}':
