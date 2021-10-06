@@ -367,6 +367,11 @@ def synctrackmain(work_queue, boot = True):
             pass
         except queue.Empty: 
             pass
+            
+        except (BrokenPipeError, ConnectionResetError) as e:
+            log.error(f"{e} when sending vehicle message - Closing {s}")
+            strack.close_message_conn(strack.message_conn)
+            strack.resend_message = True
         ###
     
         if strack.message_conn != None:
