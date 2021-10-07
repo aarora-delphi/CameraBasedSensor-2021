@@ -414,14 +414,17 @@ def synctrackmain(work_queue, boot = True):
             pass
             
         except (BrokenPipeError, ConnectionResetError) as e:
-            log.error(f"{e} when sending vehicle message - Closing {s}")
-            strack.close_message_conn(strack.message_conn)
+            log.error(f"{e} when Sending Vehicle Message - Closing Head of self.message_conn")
+            strack.close_message_conn(strack.message_conn[0])
             strack.resend_message = True
         ###
     
         if strack.message_conn != []:
             strack.conn = strack.message_conn[0]
             status = strack.sync_on_heartbeat()
+            if not mend_status(status, dconn, strack):
+                log.error(f"Unable to Send Heartbeat - Closing Head of self.message_conn")
+                strack.close_message_conn(strack.message_conn[0])
     
     
     dconn.close_socket()
