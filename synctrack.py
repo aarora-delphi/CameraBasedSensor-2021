@@ -112,11 +112,11 @@ class TrackSync():
         
         if message == '{"get":"serialnumber"}':
             self.send_response(response='{"serialnumber":"GXXXX301XXXXX"}', encode_type = 'str') 
-            
             self.append_message_conn(self.conn) # set the connection to send vehicle messages to
 
         elif message == '{"get":"partnumber"}':
-            self.send_response(response='{"partnumber":"2500-TIU-2000"}', encode_type = 'str')         
+            self.send_response(response='{"partnumber":"2500-TIU-2000"}', encode_type = 'str')   
+            self.append_message_conn(self.conn) # set the connection to send vehicle messages to
 
         elif message == '{"get":"firmwarepartno"}':
             self.send_response(response='{"firmwarepartno":"xxxxxx"}', encode_type = 'str')
@@ -126,7 +126,6 @@ class TrackSync():
         
         elif message == 'c0 goodbye':
             self.send_response(response='hello', encode_type = 'str')
-            
             self.append_message_conn(self.conn) # set the connection to send vehicle messages to      
         
         elif len(message) == 11 and message[:6] == 'Event|':
