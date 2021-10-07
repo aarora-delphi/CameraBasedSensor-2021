@@ -21,24 +21,45 @@ class TrackSync():
         self.name = name
         self.set_connect(connect)
         self.startTime = time.monotonic()
+        self.errorTime = None
         self.resend_message = False
         self.last_vehicle_message = None
-        #self.heartbeatCounter = 0
     
     def set_connect(self, connect):
         self.connect = connect != (None, None, None)
         self.s, self.conn, self.addr = connect
-        self.message_conn = self.conn
+        self.message_conn = [self.conn]
+
+    def errorbeat(self, second_interval = 240):
+        """
+            Used as a failsafe to exit synctrack
+            Returns True if second_interval has passed since error
+        """
+        currentTime = time.monotonic()
+        
+        # first time method is called
+        if self.errorTime == None:
+            self.errorTime = currentTime 
+            log.info(f"Setting self.errorTime to {currentTime}")
+            return False
+        
+        # if method has not been called in a while - set self.errorTime
+        elif currentTime - self.errorTime > second_interval * 1.5:
+            log.info(f"Resetting self.errorTime to {currentTime}")
+            self.errorTime = currentTime
+            return False
+        
+        # if method is actively being used, this action will occur
+        elif currentTime - self.errorTime > second_interval:
+            log.info("Condition met for self.errorTime")
+            return True
+                
+        return False
 
     def heartbeat(self, second_interval = 240):
         """
             Sends heartbeat every 4 minutes
         """
-        #self.heartbeatCounter += 1
-        #if self.heartbeatCounter % 30 != 0:
-        #    return
-        #    
-        #self.heartbeatCounter = 0
         currentTime = time.monotonic()
         if currentTime - self.startTime > second_interval:
             self.startTime = currentTime
@@ -90,9 +111,9 @@ class TrackSync():
         log.info(f"TRACK MESSAGE RECEIVED: {message}")
         
         if message == '{"get":"serialnumber"}':
-            self.send_response(response='{"serialnumber":"GXXXX301XXXXX"}', encode_type = 'str')   
+            self.send_response(response='{"serialnumber":"GXXXX301XXXXX"}', encode_type = 'str') 
             
-            self.message_conn = self.conn # set the connection to send vehicle messages to
+            self.append_message_conn(self.conn) # set the connection to send vehicle messages to
 
         elif message == '{"get":"partnumber"}':
             self.send_response(response='{"partnumber":"2500-TIU-2000"}', encode_type = 'str')         
@@ -106,8 +127,7 @@ class TrackSync():
         elif message == 'c0 goodbye':
             self.send_response(response='hello', encode_type = 'str')
             
-            self.message_conn = self.conn # set the connection to send vehicle messages to
-            
+            self.append_message_conn(self.conn) # set the connection to send vehicle messages to      
         
         elif len(message) == 11 and message[:6] == 'Event|':
             event = message[6:] # TO DO - Event Retrieval
@@ -214,20 +234,36 @@ class TrackSync():
         
         if self.resend_message and self.last_vehicle_message != None:
             self.resend_message = False
-            self.message_conn.sendall(self.last_vehicle_message)
+            self.message_conn[0].sendall(self.last_vehicle_message)
             log.info(f"RESENT VEH MESSAGE: {self.last_vehicle_message}")
             
         self.last_vehicle_message = message
-        self.message_conn.sendall(message)
+        self.message_conn[0].sendall(message)
         print(f"SENT VEH MESSAGE: {message}")
 
     def close_message_conn(self, conn):
         """
             Close message connection if matching conn
         """
-        if self.message_conn == conn:
-            self.message_conn = None
-            log.info(f"Closed Message Connection on {conn}")
+        if conn in self.message_conn:
+            self.message_conn.remove(conn)
+            log.info(f"Removed from self.message_conn: {conn}")
+            log.info(f"Size of self.message_conn: {len(self.message_conn)}")
+            if len(self.message_conn) != 0:
+                log.info(f"Head of self.message_conn: {self.message_conn[0]}")
+            else:
+                log.warning(f"self.message_conn is Empty")
+                
+    
+    def append_message_conn(self, conn):
+        """
+            Append message connection in self.message_conn
+        """
+        if conn not in self.message_conn:
+            self.message_conn.append(conn)
+            log.info(f"Added to self.message_conn: {conn}")
+            log.info(f"Size of self.message_conn: {len(self.message_conn)}")
+            log.info(f"Head of self.message_conn: {self.message_conn[0]}")
 
     def receive_message(self, timeout_sec = 2, decode_type = 'hex'):
         """
@@ -360,15 +396,20 @@ def synctrackmain(work_queue, boot = True):
         
         ### WORKING ON THIS PORTION 
         try:
-            if strack.message_conn != None:
+            if strack.message_conn != []:
                 vehicle_message = work_queue.get(block=False)
                 strack.send_vehicle_message(vehicle_message) 
             else:
-                log.info("No Message Connection - Can't Send Vehicle Message")
+                log.warning("No Message Connection - Can't Attempt to Send Vehicle Message")
                 time.sleep(1)
+                
+                if strack.errorbeat():
+                    log.info("Leaving Sync Event Loop")
+                    break
                 
         except AttributeError:
             pass
+        
         except queue.Empty: 
             pass
             
@@ -378,11 +419,13 @@ def synctrackmain(work_queue, boot = True):
             strack.resend_message = True
         ###
     
-        if strack.message_conn != None:
-            strack.conn = strack.message_conn
+        if strack.message_conn != []:
+            strack.conn = strack.message_conn[0]
             status = strack.sync_on_heartbeat()
     
-    dconn.close_socket() # TO DO this portion won't run - work on implementation
+    
+    dconn.close_socket()
+    log.info(f"synctrack Process Exited")
         
         ### end of new select loop
  

@@ -105,11 +105,13 @@ class MyApp(Tk):
         lensPositionLevel = 15
         lensPositionRange = np.arange(0, 255+(255/(lensPositionLevel-1)), 255/(lensPositionLevel-1)).tolist()
         self.focus_dict = dict([(str(level+1), int(value)) for (level,value) in enumerate(lensPositionRange)])
+        self.focus_dict['AUTO'] = -1 # Autofocus
         
         focuslabel = Label(self, text="Focus Level: ")
         focuslabel.pack(side = "left")
         self.focus_dict_inv = {value:key for key, value in self.focus_dict.items()} # gets inverse
         self.focus_choices = list(self.focus_dict.keys())
+        self.focus_choices.insert(0, self.focus_choices.pop(self.focus_choices.index('AUTO'))) # Move AUTO to index 0
         self.focus_var = StringVar(self)
         self.focus = OptionMenu(self, self.focus_var, *self.focus_choices, command=self.focus_save)
         self.focus.pack(side='top', fill="both", expand=True)

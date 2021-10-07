@@ -130,11 +130,21 @@ class Oak():
         
         if type(lensPosition) == int and lensPosition >= 0 and lensPosition <= 255:
             self.lensPosition = lensPosition
-            log.info(f"Manual Focus set to {lensPosition}")
+            log.info(f"Manual Focus set to {lensPosition} for {self.deviceID}")
             ctrl = dai.CameraControl()
             ctrl.setAutoFocusMode(dai.CameraControl.AutoFocusMode.OFF)
             ctrl.setManualFocus(lensPosition)
+            self.controlQueue.send(ctrl) # sent twice for assurance
             self.controlQueue.send(ctrl)
+        
+        elif type(lensPosition) == int and lensPosition == -1:
+            self.lensPosition = lensPosition
+            log.info(f"Autofocus Set for {self.deviceID}")
+            ctrl = dai.CameraControl()
+            ctrl.setAutoFocusMode(dai.CameraControl.AutoFocusMode.CONTINUOUS_VIDEO)
+            self.controlQueue.send(ctrl) # sent twice for assurance
+            self.controlQueue.send(ctrl)
+            
           
     def inference(self, show_display = False):
         """
@@ -379,6 +389,7 @@ def getCam(device_id, args, count):
     return Oak(deviceID = device_id)    
 
 if __name__ == "__main__":
+    log.info("Started runoak Process")
     args = parse_arguments()
     ### dconn = DConnect(connect = args.track)
     
@@ -386,7 +397,7 @@ if __name__ == "__main__":
         work_queue = multiprocessing.Queue()
         synctck = multiprocessing.Process(target=synctrackmain, args=(work_queue,True), daemon=True)
         synctck.start()
-        log.info("Started synctrack process")
+        log.info("Started synctrack Process")
     
     camera_track_list = []
     create_camera_track_list(camera_track_list, args, ignore_station = ['255'], order_station = False)
@@ -398,8 +409,16 @@ if __name__ == "__main__":
                 camera.inference()
                 numCars = camera.detect_intersections(show_display = True)
                 to_send = track.log_car_detection(numCars)
-                if to_send != None and args.track:
-                    work_queue.put(to_send) 
+                
+                if args.track:
+                    if to_send != None:
+                        work_queue.put(to_send) 
+                    
+                    if not synctck.is_alive():
+                        synctck = multiprocessing.Process(target=synctrackmain, args=(work_queue,False), daemon=True)
+                        synctck.start()
+                        log.info("Restarted synctrack Process")
+                        
         
                 if cv2.waitKey(1) == ord('q'):
                     should_run = False; break 

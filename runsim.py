@@ -273,6 +273,7 @@ def getCam(device_id, args, count):
                   speed = args.speed, skip = args.skip*count, loop = args.loop) 
 
 if __name__ == "__main__":
+    log.info("Started runsim Process")
     args = parse_arguments()
     ### dconn = DConnect(connect = args.track)
     
@@ -280,7 +281,7 @@ if __name__ == "__main__":
         work_queue = multiprocessing.Queue()
         synctck = multiprocessing.Process(target=synctrackmain, args=(work_queue,True), daemon=True)
         synctck.start()
-        log.info("Started synctrack process")
+        log.info("Started synctrack Process")
     
     camera_track_list = []
     create_camera_track_list(camera_track_list, args, ignore_station = ['255', '000'], order_station = True)
@@ -294,8 +295,15 @@ if __name__ == "__main__":
                 camera.inference()
                 numCars = camera.detect_intersections(show_display = True)
                 to_send = track.log_car_detection(numCars)
-                if to_send != None and args.track:
-                    work_queue.put(to_send) 
+  
+                if args.track:
+                    if to_send != None:
+                        work_queue.put(to_send) 
+                    
+                    if not synctck.is_alive():
+                        synctck = multiprocessing.Process(target=synctrackmain, args=(work_queue,False), daemon=True)
+                        synctck.start()
+                        log.info("Restarted synctrack Process")
                 
                 if cv2.waitKey(1) == ord('q'):
                     should_run = False; break  
