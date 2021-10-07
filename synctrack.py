@@ -9,11 +9,14 @@ import subprocess
 import select
 import multiprocessing
 import queue
+import signal
 
 ### local-packages
 from timeout import timeout, TimeoutError
 from logger import *
 from runtrack import DConnect
+
+should_run = True # global variable
 
 class TrackSync():
 
@@ -341,13 +344,20 @@ def mend_status(status, dconn, strack):
     
     return True
 
+def signal_handler(sig, frame):
+    log.info('synctrack Signal Handler Caught')
+    global should_run
+    should_run = False
+
 def synctrackmain(work_queue, boot = True):
     """
         Main Loop to recv and send messages to Insight Track
     """
+        
+    signal.signal(signal.SIGINT, signal_handler)
     dconn = DConnect(connect = True)
     strack = TrackSync(connect = dconn.get_conn())
-    
+        
     if boot:
         status = strack.sync_on_boot()
         if not mend_status(status, dconn, strack):
@@ -356,7 +366,8 @@ def synctrackmain(work_queue, boot = True):
     log.info("Starting Sync Event Loop")
     
     read_list = [dconn.s, dconn.conn]
-    while True:
+    
+    while should_run:
         ### start of new select loop - testing
         readable, writable, errored = select.select(read_list, [], [], 0) # non-blocking
         
