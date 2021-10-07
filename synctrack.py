@@ -378,8 +378,10 @@ def synctrackmain(work_queue, boot = True):
                         
                         strack.evaluate_message(message)
                     
-                    elif s == dconn.conn: # in attempt to keep original connection long lasting
+                    elif strack.message_conn != [] and s == strack.message_conn[0]: # keep message connection open
                         pass
+                    #elif s == dconn.conn: # in attempt to keep original connection long lasting
+                    #    pass
                     
                     else:
                         log.info(f"No data - Closing {s}")
