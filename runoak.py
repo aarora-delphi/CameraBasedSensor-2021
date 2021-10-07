@@ -402,7 +402,9 @@ if __name__ == "__main__":
     camera_track_list = []
     create_camera_track_list(camera_track_list, args, ignore_station = ['255'], order_station = False)
     should_run = True
-
+    
+    print("About to Run runoak loop")
+    
     while should_run:
         for (camera, track) in camera_track_list:
             try:
