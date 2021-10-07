@@ -273,7 +273,7 @@ def getCam(device_id, args, count):
                   speed = args.speed, skip = args.skip*count, loop = args.loop) 
 
 if __name__ == "__main__":
-    log.info("Started runsim Process")
+    log.info("Started runsim Process\n\n")
     args = parse_arguments()
     ### dconn = DConnect(connect = args.track)
     

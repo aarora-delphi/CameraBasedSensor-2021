@@ -389,7 +389,7 @@ def getCam(device_id, args, count):
     return Oak(deviceID = device_id)    
 
 if __name__ == "__main__":
-    log.info("Started runoak Process")
+    log.info("Started runoak Process\n\n")
     args = parse_arguments()
     ### dconn = DConnect(connect = args.track)
     
