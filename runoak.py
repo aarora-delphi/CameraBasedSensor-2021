@@ -135,7 +135,7 @@ class Oak():
             ctrl.setAutoFocusMode(dai.CameraControl.AutoFocusMode.OFF)
             ctrl.setManualFocus(lensPosition)
             self.controlQueue.send(ctrl)
-            time.sleep(0.25) # send control twice for assurance
+            time.sleep(0.50) # send control twice for assurance
             self.controlQueue.send(ctrl)
         
         elif type(lensPosition) == int and lensPosition == -1:
