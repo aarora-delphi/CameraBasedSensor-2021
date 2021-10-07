@@ -377,10 +377,10 @@ def synctrackmain(work_queue, boot = True):
                         
                         strack.evaluate_message(message)
                     
-                    elif strack.message_conn != [] and s == strack.message_conn[0]: # keep message connection open
-                        pass
-                    #elif s == dconn.conn: # in attempt to keep original connection long lasting
+                    #elif strack.message_conn != [] and s == strack.message_conn[0]: # keep message connection open
                     #    pass
+                    elif s == dconn.conn: # in attempt to keep original connection long lasting
+                        pass
                     
                     else:
                         log.info(f"No data - Closing {s}")
@@ -390,8 +390,14 @@ def synctrackmain(work_queue, boot = True):
                 
                 except (BrokenPipeError, ConnectionResetError) as e:
                     log.error(f"{e} - Closing {s}")
+                    
+                    ### testing 10-7-2021
+                    if strack.message_conn[0] == dconn.conn:
+                        log.error(f"dconn.conn is Broken - Leaving Sync Event Loop")
+                        break
+                    ###
+                    
                     strack.close_message_conn(s)
-                    strack.resend_message = True
                     s.close()
                     read_list.remove(s) 
         
@@ -416,9 +422,15 @@ def synctrackmain(work_queue, boot = True):
             
         except (BrokenPipeError, ConnectionResetError) as e:
             log.error(f"{e} when Sending Vehicle Message - Closing Head of self.message_conn")
+            
+            ### testing 10-7-2021
+            if strack.message_conn[0] == dconn.conn:
+                log.error(f"dconn.conn is Broken - Leaving Sync Event Loop")
+                break # TO DO - resend missing event before break - put event in Queue Again
+            ###
+            
             strack.close_message_conn(strack.message_conn[0])
             strack.resend_message = True
-        ###
     
         if strack.message_conn != []:
             strack.conn = strack.message_conn[0]
