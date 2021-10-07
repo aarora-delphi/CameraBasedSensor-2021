@@ -132,9 +132,8 @@ class Oak():
             self.lensPosition = lensPosition
             log.info(f"Manual Focus set to {lensPosition} for {self.deviceID}")
             ctrl = dai.CameraControl()
-            ctrl.setAutoFocusMode(dai.CameraControl.AutoFocusMode.OFF)
+            ###ctrl.setAutoFocusMode(dai.CameraControl.AutoFocusMode.OFF)
             ctrl.setManualFocus(lensPosition)
-            self.controlQueue.send(ctrl) # sent twice for assurance
             self.controlQueue.send(ctrl)
         
         elif type(lensPosition) == int and lensPosition == -1:
@@ -142,7 +141,6 @@ class Oak():
             log.info(f"Autofocus Set for {self.deviceID}")
             ctrl = dai.CameraControl()
             ctrl.setAutoFocusMode(dai.CameraControl.AutoFocusMode.CONTINUOUS_VIDEO)
-            self.controlQueue.send(ctrl) # sent twice for assurance
             self.controlQueue.send(ctrl)
             
           
