@@ -345,15 +345,15 @@ def mend_status(status, dconn, strack):
     return True
 
 def signal_handler(sig, frame):
-    log.info('synctrack Signal Handler Caught')
     global should_run
+    log.info('synctrack Signal Handler Caught')
     should_run = False
 
 def synctrackmain(work_queue, boot = True):
     """
         Main Loop to recv and send messages to Insight Track
     """
-        
+    global should_run
     signal.signal(signal.SIGINT, signal_handler)
     dconn = DConnect(connect = True)
     strack = TrackSync(connect = dconn.get_conn())
@@ -368,7 +368,7 @@ def synctrackmain(work_queue, boot = True):
     read_list = [dconn.s, dconn.conn]
     
     while should_run:
-        ### start of new select loop - testing
+    
         readable, writable, errored = select.select(read_list, [], [], 0) # non-blocking
         
         for s in readable:
@@ -380,7 +380,7 @@ def synctrackmain(work_queue, boot = True):
                 try:
                     data = s.recv(1024)
                     if data:
-                        print(f"Received - {data}")
+                        print(f"RECEIVED DATA - {data}")
                         try:
                             message = data.decode()
                         except UnicodeDecodeError:
@@ -388,37 +388,39 @@ def synctrackmain(work_queue, boot = True):
                         
                         strack.evaluate_message(message)
                     
-                    #elif strack.message_conn != [] and s == strack.message_conn[0]: # keep message connection open
-                    #    pass
                     elif s == dconn.conn: # in attempt to keep original connection long lasting
                         pass
                     
                     else:
-                        log.info(f"No data - Closing {s}")
+                        log.info(f"NO CONN DATA - CLOSING {s}")
                         strack.close_message_conn(s)
                         s.close()
                         read_list.remove(s)   
                 
                 except (BrokenPipeError, ConnectionResetError) as e:
-                    log.error(f"{e} - Closing {s}")
+                    log.error(f"{e} - ON DATA READ/REPLY - CLOSING {s}")
                     
                     ### testing 10-7-2021
                     if strack.message_conn[0] == dconn.conn:
-                        log.error(f"dconn.conn is Broken - Leaving Sync Event Loop")
-                        break
+                        work_queue.put(strack.last_vehicle_message)
+                        log.info(f"BROKEN dconn.conn ON DATA LOOP, PUT IN work_queue: {strack.last_vehicle_message}")
+                        should_run = False
                     ###
                     
+                    strack.resend_message = True
                     strack.close_message_conn(s)
                     s.close()
                     read_list.remove(s) 
         
-        ### WORKING ON THIS PORTION 
+        if not should_run:
+            break 
+        
         try:
             if strack.message_conn != []:
                 vehicle_message = work_queue.get(block=False)
                 strack.send_vehicle_message(vehicle_message) 
             else:
-                log.warning("No Message Connection - Can't Attempt to Send Vehicle Message")
+                log.warning("NO MESSAGE CONN - Can't Attempt to Send Vehicle Message")
                 time.sleep(1)
                 
                 if strack.errorbeat():
@@ -436,8 +438,9 @@ def synctrackmain(work_queue, boot = True):
             
             ### testing 10-7-2021
             if strack.message_conn[0] == dconn.conn:
-                log.error(f"dconn.conn is Broken - Leaving Sync Event Loop")
-                break # TO DO - resend missing event before break - put event in Queue Again
+                log.info(f"BROKEN dconn.conn ON VEH MESSAGE, PUT IN work_queue: {strack.last_vehicle_message}")
+                work_queue.put(strack.last_vehicle_message)
+                break
             ###
             
             strack.close_message_conn(strack.message_conn[0])
@@ -453,24 +456,6 @@ def synctrackmain(work_queue, boot = True):
     
     dconn.close_socket()
     log.info(f"synctrack Process Exited")
-        
-        ### end of new select loop
- 
-            #else:
-            #    strack.conn = s
-            #    status = strack.sync_on_recv()
-            #    if not mend_status(status, dconn, strack):
-            #        print(f"Closing {s}")
-            #        s.close()
-            #        read_list.remove(s)
-        
-        ###status = strack.sync_on_heartbeat()
-        ###status = strack.sync_on_recv()
-        ###if not mend_status(status, dconn, strack):
-        ###    log.info(f"Exiting synctrack Loop")
-        ###    break
 
 if __name__ == "__main__":
-    # dconn = DConnect(connect = True)
-    synctrackmain(None, boot = True)   
-    # dconn.close_socket()
+    synctrackmain(None, boot = True)
