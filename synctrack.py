@@ -64,11 +64,15 @@ class TrackSync():
             Sends heartbeat every 4 minutes
         """
         currentTime = time.monotonic()
-        if currentTime - self.startTime > second_interval:
+        if currentTime - self.startTime > second_interval:        
             self.startTime = currentTime
+            self.conn = self.message_conn_head()
             self.send_response(response = '000000000000000000000', encode_type = 'str')
 
     def sync_on_heartbeat(self):
+        """
+            Command to Sync with Insight Track with heartBeat during Regular Interval
+        """
         return self.sync_wrapper(self.heartbeat)
 
     def sync_on_boot(self):
@@ -115,11 +119,9 @@ class TrackSync():
         
         if message == '{"get":"serialnumber"}':
             self.send_response(response='{"serialnumber":"GXXXX301XXXXX"}', encode_type = 'str') 
-            self.append_message_conn(self.conn) # set the connection to send vehicle messages to
 
         elif message == '{"get":"partnumber"}':
-            self.send_response(response='{"partnumber":"2500-TIU-2000"}', encode_type = 'str')   
-            self.append_message_conn(self.conn) # set the connection to send vehicle messages to
+            self.send_response(response='{"partnumber":"2500-TIU-2000"}', encode_type = 'str')
 
         elif message == '{"get":"firmwarepartno"}':
             self.send_response(response='{"firmwarepartno":"xxxxxx"}', encode_type = 'str')
@@ -128,8 +130,7 @@ class TrackSync():
             self.send_response(response='goodbye', encode_type = 'str')
         
         elif message == 'c0 goodbye':
-            self.send_response(response='hello', encode_type = 'str')
-            self.append_message_conn(self.conn) # set the connection to send vehicle messages to      
+            self.send_response(response='hello', encode_type = 'str')      
         
         elif len(message) == 11 and message[:6] == 'Event|':
             event = message[6:] # TO DO - Event Retrieval
@@ -234,13 +235,15 @@ class TrackSync():
         """
         # TO-DO save message in log file for use in Event| calls
         
+        conn = self.message_conn_head()
+        
         if self.resend_message and self.last_vehicle_message != None:
             self.resend_message = False
-            self.message_conn[0].sendall(self.last_vehicle_message)
+            conn.sendall(self.last_vehicle_message)
             log.info(f"RESENT VEH MESSAGE: {self.last_vehicle_message}")
             
         self.last_vehicle_message = message
-        self.message_conn[0].sendall(message)
+        conn.sendall(message)
         print(f"SENT VEH MESSAGE: {message}")
 
     def close_message_conn(self, conn):
@@ -250,12 +253,13 @@ class TrackSync():
         if conn in self.message_conn:
             self.message_conn.remove(conn)
             log.info(f"Removed from self.message_conn: {conn}")
-            log.info(f"Size of self.message_conn: {len(self.message_conn)}")
-            if len(self.message_conn) != 0:
-                log.info(f"Head of self.message_conn: {self.message_conn[0]}")
-            else:
-                log.warning(f"self.message_conn is Empty")
-                
+            log.warning(f"self.message_conn is Empty")
+            
+            #log.info(f"Size of self.message_conn: {len(self.message_conn)}")
+            #if self.message_conn:
+            #    log.info(f"Head of self.message_conn: {self.message_conn_head()}")
+            #else:
+            #    log.warning(f"self.message_conn is Empty")
     
     def append_message_conn(self, conn):
         """
@@ -265,7 +269,25 @@ class TrackSync():
             self.message_conn.append(conn)
             log.info(f"Added to self.message_conn: {conn}")
             log.info(f"Size of self.message_conn: {len(self.message_conn)}")
-            log.info(f"Head of self.message_conn: {self.message_conn[0]}")
+            log.info(f"Head of self.message_conn: {self.message_conn_head()}")
+
+    def message_conn_head(self):
+        """
+            return first item in self.message_conn
+        """
+        return self.message_conn[0]
+
+    def decode_message(self, data):
+        """
+            Returns decoded data
+        """
+        print(f"RECEIVED DATA - {data}")
+        try:
+            message = data.decode()
+        except UnicodeDecodeError:
+            message = data.hex()
+        
+        return message
 
     def receive_message(self, timeout_sec = 2, decode_type = 'hex'):
         """
@@ -323,10 +345,14 @@ class TrackSync():
         
         return 0
 
-def restart_connect(dconn, strack):
+def restart_connect(dconn, strack, read_list):
     """
-        Shorthand to reconnect to Track
+        Shorthand to reconnect to Track + Close All Connections
     """
+    log.info(f"Closing All Connections")
+    for conn in read_list:
+        conn.close()
+                
     log.info(f"Restarting Track Connection")
     dconn.close_socket()
     dconn.set_track()
@@ -345,8 +371,11 @@ def mend_status(status, dconn, strack):
     return True
 
 def signal_handler(sig, frame):
+    """
+        Sets should_run to False when Keyboard Interrupt is Caught Ending synctrackmain loop
+    """
     global should_run
-    log.info('synctrack Signal Handler Caught')
+    log.info('synctrack Signal Handler Caught - setting should_run to False')
     should_run = False
 
 def synctrackmain(work_queue, boot = True):
@@ -355,40 +384,34 @@ def synctrackmain(work_queue, boot = True):
     """
     global should_run
     signal.signal(signal.SIGINT, signal_handler)
-    dconn = DConnect(connect = True)
-    strack = TrackSync(connect = dconn.get_conn())
-        
-    if boot:
-        status = strack.sync_on_boot()
-        if not mend_status(status, dconn, strack):
-            log.info(f"Issue with Boot Sync - Continuing")
-            
-    log.info("Starting Sync Event Loop")
     
+    dconn = DConnect(connect = True)
+    strack = TrackSync(connect = dconn.get_conn())            
+    
+    log.info("Starting Sync Event Loop")
     read_list = [dconn.s, dconn.conn]
     
     while should_run:
     
         readable, writable, errored = select.select(read_list, [], [], 0) # non-blocking
         
+        # -------------------------------------------------
+        
         for s in readable:
             if s is dconn.s:
                 client_socket, address = dconn.accept_conn()
                 read_list.append(client_socket)
             else:
-                strack.conn = s # set connection to use
                 try:
+                    
                     data = s.recv(1024)
+                    
                     if data:
-                        print(f"RECEIVED DATA - {data}")
-                        try:
-                            message = data.decode()
-                        except UnicodeDecodeError:
-                            message = data.hex()
-                        
+                        strack.conn = s # set connection to use
+                        message = strack.decode_message(data)                        
                         strack.evaluate_message(message)
                     
-                    elif s == dconn.conn: # in attempt to keep original connection long lasting
+                    elif s == dconn.conn: # keep original connection from closing when no data present
                         pass
                     
                     else:
@@ -399,63 +422,37 @@ def synctrackmain(work_queue, boot = True):
                 
                 except (BrokenPipeError, ConnectionResetError) as e:
                     log.error(f"{e} - ON DATA READ/REPLY - CLOSING {s}")
-                    
-                    ### testing 10-7-2021
-                    if strack.message_conn[0] == dconn.conn:
-                        work_queue.put(strack.last_vehicle_message)
-                        log.info(f"BROKEN dconn.conn ON DATA LOOP, PUT IN work_queue: {strack.last_vehicle_message}")
-                        should_run = False
-                    ###
-                    
-                    strack.resend_message = True
                     strack.close_message_conn(s)
                     s.close()
-                    read_list.remove(s) 
+                    read_list.remove(s)
+                    strack.resend_message = True
         
-        if not should_run:
-            break 
+        # -------------------------------------------------
         
         try:
-            if strack.message_conn != []:
+            if strack.message_conn:
+                vehicle_message = None
+                strack.heartbeat()
                 vehicle_message = work_queue.get(block=False)
                 strack.send_vehicle_message(vehicle_message) 
             else:
-                log.warning("NO MESSAGE CONN - Can't Attempt to Send Vehicle Message")
-                time.sleep(1)
-                
-                if strack.errorbeat():
-                    log.info("Leaving Sync Event Loop")
-                    break
-                
-        except AttributeError:
-            pass
+                log.warning("NO MESSAGE CONN - Restarting All Connections")
+                restart_connect(dconn, strack, read_list)
+                read_list = [dconn.s, dconn.conn]     
         
         except queue.Empty: 
             pass
             
         except (BrokenPipeError, ConnectionResetError) as e:
-            log.error(f"{e} when Sending Vehicle Message - Closing Head of self.message_conn")
-            
-            ### testing 10-7-2021
-            if strack.message_conn[0] == dconn.conn:
-                log.info(f"BROKEN dconn.conn ON VEH MESSAGE, PUT IN work_queue: {strack.last_vehicle_message}")
-                work_queue.put(strack.last_vehicle_message)
-                break
-            ###
-            
-            strack.close_message_conn(strack.message_conn[0])
-            strack.resend_message = True
-    
-        if strack.message_conn != []:
-            strack.conn = strack.message_conn[0]
-            status = strack.sync_on_heartbeat()
-            if not mend_status(status, dconn, strack):
-                log.error(f"Unable to Send Heartbeat - Closing Head of self.message_conn")
-                strack.close_message_conn(strack.message_conn[0])
-    
-    
+            log.error(f"{e} when Sending Vehicle Message / Heartbeat - Closing Head of self.message_conn")
+            strack.close_message_conn(strack.message_conn_head())
+            if vehicle_message:
+                strack.resend_message = True
+        
+
     dconn.close_socket()
     log.info(f"synctrack Process Exited")
 
 if __name__ == "__main__":
-    synctrackmain(None, boot = True)
+    work_queue = multiprocessing.Queue()
+    synctrackmain(work_queue, boot = True)
