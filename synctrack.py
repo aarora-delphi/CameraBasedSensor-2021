@@ -10,11 +10,13 @@ import select
 import multiprocessing
 import queue
 import signal
+from collections import deque
 
 ### local-packages
 from timeout import timeout, TimeoutError
 from logger import *
 from runtrack import DConnect
+import pickle_util
 
 should_run = True # global variable
 
@@ -27,6 +29,9 @@ class TrackSync():
         self.errorTime = None
         self.resend_message = False
         self.last_vehicle_message = None
+        
+        self.buffer_file = f"storage-oak/event_buffer.pb"
+        self.event_buffer = pickle_util.load(self.buffer_file, error_return = deque(maxlen=2000)) # store last 2K events
     
     def set_connect(self, connect):
         self.connect = connect != (None, None, None)
@@ -110,11 +115,7 @@ class TrackSync():
             Given a message, evaluate response to send
         """       
         message = message.rstrip() # remove newline / tab char
-        
-        if len(message) == 11 and message[:6] == 'Event|': # TO DO - Handle Event Request
-            print(f"TRACK EVENT REQUESTED: {message}")
-            return
-        
+                
         log.info(f"TRACK MESSAGE RECEIVED: {message}")
         
         if message == '{"get":"serialnumber"}':
@@ -126,14 +127,13 @@ class TrackSync():
         elif message == '{"get":"firmwarepartno"}':
             self.send_response(response='{"firmwarepartno":"xxxxxx"}', encode_type = 'str')
         
-        elif message == 'hello':
-            self.send_response(response='goodbye', encode_type = 'str')
-        
-        elif message == 'c0 goodbye':
+        elif 'client' in message:
             self.send_response(response='hello', encode_type = 'str')      
         
         elif len(message) == 11 and message[:6] == 'Event|':
-            event = message[6:] # TO DO - Event Retrieval
+            buffer_event = self.retrieve_event_from_buffer(message[6:])
+            if buffer_event:
+                self.send_response(response=buffer_event, encode_type = 'byte') 
         
         # boot sync
         elif message == '1001053030303030301003c8':
@@ -224,16 +224,49 @@ class TrackSync():
             to_send = bytes.fromhex(response)
         elif encode_type == 'str':
             to_send = bytes(response+'\n', encoding='utf-8')
+        elif encode_type == 'byte':
+            to_send = response
         
         self.conn.sendall(to_send)
         log.info(f"SENT RESPONSE: {response} - Encoded as {to_send}")
 
     
+    def retrieve_event_from_buffer(self, event):
+        """
+            Retrieves event from buffer
+        """
+        event_buffer_list = list(self.event_buffer)
+        index = search(event_buffer_list, 0, len(event_buffer_list) - 1, event)
+        
+        if index != -1:
+            requested_event = event_buffer_list[index]
+            log.info(f"Found Requested Event {event}: {requested_event}")
+            return requested_event
+        else:
+            log.info(f"Did Not Find Requested Event {event}")
+            return None
+    
+    def add_event_to_buffer(self, event):
+        """
+            Saves event to self.event_buffer + to disk on interval
+        """
+        self.event_buffer.append(event)
+
+        if int(event[-5:]) % 100 == 0:
+            self.save_event_buffer()
+    
+    def save_event_buffer(self):
+        """
+            Saves Event Buffer to Disk
+        """
+        log.info(f"Saving Event Buffer to Disk")
+        pickle_util.save(self.buffer_file, self.event_buffer)  
+
     def send_vehicle_message(self, message):
         """
             Send a vehicle message to Insight Track
         """
-        # TO-DO save message in log file for use in Event| calls
+        self.add_event_to_buffer(message)
         
         conn = self.message_conn_head()
         
@@ -253,13 +286,7 @@ class TrackSync():
         if conn in self.message_conn:
             self.message_conn.remove(conn)
             log.info(f"Removed from self.message_conn: {conn}")
-            log.warning(f"self.message_conn is Empty")
-            
-            #log.info(f"Size of self.message_conn: {len(self.message_conn)}")
-            #if self.message_conn:
-            #    log.info(f"Head of self.message_conn: {self.message_conn_head()}")
-            #else:
-            #    log.warning(f"self.message_conn is Empty")
+            log.warning(f"self.message_conn is Empty - Length {len(self.message_conn)}")
     
     def append_message_conn(self, conn):
         """
@@ -344,6 +371,37 @@ class TrackSync():
             return -1
         
         return 0
+
+
+def search(arr, l, h, key):
+    """
+        Performs Binary Search with Pivot for key (event) in arr (event_buffer)
+        Returns -1 if key not present, otherwise returns index
+    """
+    def access_arr(index):
+        return arr[index].decode()[-6:-1] # extract event number from event - last 5 characters before newline
+    
+    if l > h:
+        return -1
+     
+    mid = (l + h) // 2
+    if access_arr(mid) == key:
+        return mid
+ 
+    # If arr[l...mid] is sorted
+    if access_arr(l) <= access_arr(mid):
+ 
+        # As this subarray is sorted, we can quickly
+        # check if key lies in half or other half
+        if key >= access_arr(l) and key <= access_arr(mid):
+            return search(arr, l, mid-1, key)
+        return search(arr, mid + 1, h, key)
+ 
+    # If arr[l..mid] is not sorted, then arr[mid... r]
+    # must be sorted
+    if key >= access_arr(mid) and key <= access_arr(h):
+        return search(arr, mid + 1, h, key)
+    return search(arr, l, mid-1, key)
 
 def restart_connect(dconn, strack, read_list):
     """
@@ -437,6 +495,7 @@ def synctrackmain(work_queue, boot = True):
                 strack.send_vehicle_message(vehicle_message) 
             else:
                 log.warning("NO MESSAGE CONN - Restarting All Connections")
+                strack.save_event_buffer()
                 restart_connect(dconn, strack, read_list)
                 read_list = [dconn.s, dconn.conn]     
         
@@ -450,6 +509,7 @@ def synctrackmain(work_queue, boot = True):
                 strack.resend_message = True
         
 
+    strack.save_event_buffer()
     dconn.close_socket()
     log.info(f"synctrack Process Exited")
 
