@@ -30,6 +30,7 @@ class TrackSync():
         self.resend_message = False
         self.last_vehicle_message = None
         
+        self.offset = int(subprocess.check_output("./script/get_timezone.sh").strip()) # gets tz diff in seconds from utc
         self.buffer_file = f"storage-oak/event_buffer.pb"
         self.event_buffer = pickle_util.load(self.buffer_file, error_return = deque(maxlen=2000)) # store last 2K events
     
@@ -72,7 +73,7 @@ class TrackSync():
         if currentTime - self.startTime > second_interval:        
             self.startTime = currentTime
             self.conn = self.message_conn_head()
-            self.send_response(response = '000000000000000000000', encode_type = 'str')
+            self.send_response(response = '000000000000000000000', encode_type = 'str') # incorrect - see spec (do in runtrack)
 
     def sync_on_heartbeat(self):
         """
@@ -130,10 +131,20 @@ class TrackSync():
         elif 'client' in message:
             self.send_response(response='hello', encode_type = 'str')      
         
-        elif len(message) == 11 and message[:6] == 'Event|':
-            buffer_event = self.retrieve_event_from_buffer(message[6:])
-            if buffer_event:
-                self.send_response(response=buffer_event, encode_type = 'byte') 
+        elif len(message) == 11 and message[:6] == 'Event|' and self.event_buffer:
+            start_event = message[6:]
+            current_event = self.event_buffer[-1].decode()[-6:-1]
+
+            self.send_response(response=f'254000{self.timestamp()}00000', encode_type = 'str') # start message cycle
+                
+            for int_event in range(int(start_event),int(current_event)+1): # loop to send requested to current events
+                str_event = str(int_event).zfill(5) 
+                buffer_event = self.retrieve_event_from_buffer(str_event)
+                if buffer_event:
+                    self.send_response(response=buffer_event, encode_type = 'byte')
+            
+            self.send_response(response=f'255000{self.timestamp()}00000', encode_type = 'str') # end message cycle   
+                    
         
         # boot sync
         elif message == '1001053030303030301003c8':
@@ -146,7 +157,12 @@ class TrackSync():
         elif message == '1001061003e7':
             self.send_response(response = '1006061003E7') # response 3
             
-
+    def timestamp(self):
+        """
+            Returns the epoch timestamp with offset applied
+        """
+        return int(time.time()) + self.offset
+    
     def sync_time(self):
         """
             Send 3 responses to Delphi Track
@@ -490,7 +506,7 @@ def synctrackmain(work_queue, boot = True):
         try:
             if strack.message_conn:
                 vehicle_message = None
-                strack.heartbeat()
+                ### strack.heartbeat() # TO DO - Put method in runtrack.py
                 vehicle_message = work_queue.get(block=False)
                 strack.send_vehicle_message(vehicle_message) 
             else:

@@ -85,7 +85,7 @@ class DTrack():
 
     def get_buffer_position(self):
         buffer_position = pickle_util.load(self.buffer_file, error_return = 0) + 1
-        if buffer_position > 99999:
+        if buffer_position > 65535:
             buffer_position = 1
         pickle_util.save(self.buffer_file, buffer_position)
         return buffer_position
