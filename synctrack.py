@@ -25,8 +25,8 @@ class TrackSync():
     def __init__(self, name = "Track1", connect = (None, None, None)):
         self.name = name
         self.set_connect(connect)
-        self.startTime = time.monotonic()
-        self.errorTime = None
+        self.heartbeat_timer = time.monotonic()
+        self.error_timer = None
         self.resend_message = False
         self.last_vehicle_message = None
         
@@ -44,36 +44,36 @@ class TrackSync():
             Used as a failsafe to exit synctrack
             Returns True if second_interval has passed since error
         """
-        currentTime = time.monotonic()
+        current_time = time.monotonic()
         
         # first time method is called
-        if self.errorTime == None:
-            self.errorTime = currentTime 
-            log.info(f"Setting self.errorTime to {currentTime}")
+        if self.error_timer == None:
+            self.error_timer = current_time 
+            log.info(f"Setting self.error_timer to {current_time}")
             return False
         
-        # if method has not been called in a while - set self.errorTime
-        elif currentTime - self.errorTime > second_interval * 1.5:
-            log.info(f"Resetting self.errorTime to {currentTime}")
-            self.errorTime = currentTime
+        # if method has not been called in a while - set self.error_timer
+        elif current_time - self.error_timer > second_interval * 1.5:
+            log.info(f"Resetting self.error_timer to {current_time}")
+            self.error_timer = current_time
             return False
         
         # if method is actively being used, this action will occur
-        elif currentTime - self.errorTime > second_interval:
-            log.info("Condition met for self.errorTime")
+        elif current_time - self.error_timer > second_interval:
+            log.info("Condition met for self.error_timer")
             return True
                 
         return False
 
-    def heartbeat(self, second_interval = 240):
+    def heartbeat(self, second_interval = 300):
         """
-            Sends heartbeat every 4 minutes
+            Sends heartbeat after 5 minutes of inactivity
         """
-        currentTime = time.monotonic()
-        if currentTime - self.startTime > second_interval:        
-            self.startTime = currentTime
+        current_time = time.monotonic()
+        if current_time - self.heartbeat_timer > second_interval:
             self.conn = self.message_conn_head()
-            self.send_response(response = '000000000000000000000', encode_type = 'str') # incorrect - see spec (do in runtrack)
+            self.send_response(response=f'000000{self.timestamp()}00000', encode_type = 'str')
+            self.heartbeat_timer = current_time
 
     def sync_on_heartbeat(self):
         """
@@ -132,19 +132,7 @@ class TrackSync():
             self.send_response(response='hello', encode_type = 'str')      
         
         elif len(message) == 11 and message[:6] == 'Event|' and self.event_buffer:
-            start_event = message[6:]
-            current_event = self.event_buffer[-1].decode()[-6:-1]
-
-            self.send_response(response=f'254000{self.timestamp()}00000', encode_type = 'str') # start message cycle
-                
-            for int_event in range(int(start_event),int(current_event)+1): # loop to send requested to current events
-                str_event = str(int_event).zfill(5) 
-                buffer_event = self.retrieve_event_from_buffer(str_event)
-                if buffer_event:
-                    self.send_response(response=buffer_event, encode_type = 'byte')
-            
-            self.send_response(response=f'255000{self.timestamp()}00000', encode_type = 'str') # end message cycle   
-                    
+            self.send_missing_events(message)
         
         # boot sync
         elif message == '1001053030303030301003c8':
@@ -156,7 +144,26 @@ class TrackSync():
 
         elif message == '1001061003e7':
             self.send_response(response = '1006061003E7') # response 3
+
+
+    def send_missing_events(self, event_message):
+        """
+            Sends events from start_event to latest event. Specification dictates start and end messages.
+        """    
+        start_event = event_message[6:]
+        current_event = self.event_buffer[-1].decode()[-6:-1]
+
+        self.send_response(response=f'254000{self.timestamp()}00000', encode_type = 'str') # start message cycle
+                
+        for int_event in range(int(start_event),int(current_event)+1): # loop to send requested to current events
+            str_event = str(int_event).zfill(5) 
+            buffer_event = self.retrieve_event_from_buffer(str_event)
+            if buffer_event:
+                self.send_response(response=buffer_event, encode_type = 'byte')
             
+        self.send_response(response=f'255000{self.timestamp()}00000', encode_type = 'str') # end message cycle   
+
+
     def timestamp(self):
         """
             Returns the epoch timestamp with offset applied
@@ -245,7 +252,7 @@ class TrackSync():
         
         self.conn.sendall(to_send)
         log.info(f"SENT RESPONSE: {response} - Encoded as {to_send}")
-
+        self.heartbeat_timer = time.monotonic() # reset timer
     
     def retrieve_event_from_buffer(self, event):
         """
@@ -294,6 +301,7 @@ class TrackSync():
         self.last_vehicle_message = message
         conn.sendall(message)
         print(f"SENT VEH MESSAGE: {message}")
+        self.heartbeat_timer = time.monotonic() # reset timer
 
     def close_message_conn(self, conn):
         """
@@ -506,7 +514,7 @@ def synctrackmain(work_queue, boot = True):
         try:
             if strack.message_conn:
                 vehicle_message = None
-                ### strack.heartbeat() # TO DO - Put method in runtrack.py
+                strack.heartbeat()
                 vehicle_message = work_queue.get(block=False)
                 strack.send_vehicle_message(vehicle_message) 
             else:

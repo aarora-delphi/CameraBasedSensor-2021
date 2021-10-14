@@ -66,50 +66,45 @@ class DTrack():
 
     def __init__(self, name = '001', connect = False): # connect = (None, None, None)):
         self.name = name
-        self.resend_message = None
         self.set_connect(connect)
         
         self.offset = int(subprocess.check_output("./script/get_timezone.sh").strip()) # gets tz diff in seconds from utc
         self.buffer_file = f"storage-oak/buffer_position.pb"
+        ###self.heartbeat_timer = time.monotonic()
         
         # JSON Logging related variables
         self.min_frames = 5
-        ###self.pickle_car_count = f"storage-oak/car_count_{self.name}.pb"
-        ###self.car_count = pickle_util.load(self.pickle_car_count, error_return = 0)
         self.car_counts = deque([-1]*self.min_frames)
         self.in_lane = False
         self.out_lane = True
-        self.total_cars_count = 0
-        self.first = 0
-        self.prev = 0
 
     def get_buffer_position(self):
-        buffer_position = pickle_util.load(self.buffer_file, error_return = 0) + 1
+        """
+            Loads, Increments, Saves, and Returns buffer_position
+        """
+        buffer_position = pickle_util.load(self.buffer_file, error_return = -1) + 1
+        
         if buffer_position > 65535:
-            buffer_position = 1
+            buffer_position = 0
+        
         pickle_util.save(self.buffer_file, buffer_position)
         return buffer_position
 
     def set_name(self, name):
+        """
+            Sets self.name defined as the station number 000 - 008
+        """
         self.name = name
     
     def set_connect(self, connect):
-        # set to not connect
-        if self.name == '000' or self.name == '255':
-            connect = False # (None, None, None)
+        """
+            Prevents message sending for invalid self.name station number
+        """
+        if self.name == '000' or self.name == '255': # set to not connect
+            connect = False
             log.info(f'Track Messaging Disabled for Station {self.name}')
         
-        # connect to track system or not
-        self.connect = connect ### != (None, None, None)
-        ### self.s, self.conn, self.addr = connect
-        
-        # resend saved message from past failed attempt
-        '''
-        if self.connect and self.resend_message != None:
-            self.__send_json_message(self.resend_message)
-            log.info(f'Resent Saved Message at Station {self.name}')
-            self.resend_message = None
-        '''
+        self.connect = connect # determines if messages are sent
 
     def __create_track_string(self, json_msg):
         """
@@ -119,10 +114,12 @@ class DTrack():
         status = ''
         timestamp = str(int(json_msg['timestamp']))
         vehicle_id = str(json_msg['vehicle_id']).zfill(5)
+        
         if json_msg['status']  == '001':
             status = '255'
         elif json_msg['status'] == '002':
             status = '000' 
+        
         to_send = bytes(loop_num+status+timestamp+vehicle_id+'\n', 'utf-8')
         return to_send
 
@@ -134,12 +131,11 @@ class DTrack():
             Parameters:
             numCars: the number of cars detected in the frame by the model
         """
-        s1 = int(time.time()) + self.offset # epoch time + timezone difference in seconds 
-
+        
         json_message = {
                 "camera_id": self.name,
-                "timestamp":s1,
-                "vehicle_id": 0, ###self.car_count+1,
+                "timestamp": self.timestamp(),
+                "vehicle_id": 0,
                 "status": "000"
         }
 
@@ -147,58 +143,51 @@ class DTrack():
             print(json_message)
             return
 
+
         self.car_counts.append(numCars)
         self.car_counts.popleft()
 
         if self.car_counts == (deque([0]*self.min_frames)) and self.in_lane:
-            #Car left ROI
-            json_message["status"] = "002"
-            
-            ###self.car_count += 1
-            ###if self.car_count >= 99999:
-            ###    self.car_count = 0
-            ###pickle_util.save(self.pickle_car_count, self.car_count)
-            
+            json_message["status"] = "002" # Car left ROI
             self.out_lane = True
             self.in_lane = False
 
         elif self.car_counts == (deque([1]*self.min_frames)) and self.out_lane:
-            #Car entered ROI
-            json_message["status"] = "001"
+            json_message["status"] = "001" # Car entered ROI
             self.in_lane = True
             self.out_lane = False
-            
-        if self.connect and json_message["status"] != "000":
-            json_message["vehicle_id"] = self.get_buffer_position()
-            to_send = self.__send_json_message(json_message)
-        
+
+
         if json_message["status"] != "000":
+            if self.connect:
+                json_message["vehicle_id"] = self.get_buffer_position()
+                ###self.heartbeat_timer = time.monotonic() # reset timer
+            
             print(json_message)
-            #print(self.__create_track_string(json_message))
+            
+            if self.connect:
+                to_send = self.__create_track_string(json_message)
+                return to_send
+        
+        ###else:
+        ###    if self.connect:
+        ###        return self.heartbeat()
 
-        ### messaging to be done in synctrack.py
-        if self.connect and json_message["status"] != "000":
-            return to_send
+    def timestamp(self):
+        """
+            return timestamp which is epoch time + timezone difference in seconds
+        """
+        ts = int(time.time()) + self.offset
+        return ts
 
-    ### messaging to be done in synctrack.py
-    def __send_json_message(self, msg):
-        """
-            create track string from message
-        """
-        return self.__create_track_string(msg)
+    ###def heartbeat(self, second_interval = 300):
+    ###    """
+    ###        Sends heartbeat every 5 minutes of inactivity
+    ###    """
+    ###    current_time = time.monotonic()
+    ###    if current_time - self.heartbeat_timer > second_interval:
+    ###        self.heartbeat_timer = current_time
+    ###        to_send = bytes(f'000000{self.timestamp()}00000'+'\n', 'utf-8')
+    ###        print(f"Heartbeat: {to_send}")
+    ###        return to_send
 
-    # commenting out to have messaging done in synctrack.py
-    '''
-    def __send_json_message(self, msg):
-        """
-            sends json message to specified server 's'
-        """
-        to_send = self.__create_track_string(msg)
-        try:
-            self.conn.sendall(to_send)
-            #print(f"message sent at time {datetime.now().strftime('%H:%M:%S.%f')[:-3]}")
-        except (BrokenPipeError, ConnectionResetError) as e:
-            log.error(f'{e} on Station {self.name} - Storing Message')
-            self.resend_message = msg
-            raise BrokenPipeError 
-    '''
