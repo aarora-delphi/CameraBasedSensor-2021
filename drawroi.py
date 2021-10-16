@@ -5,6 +5,7 @@ from tkinter import *
 import tkinter.messagebox
 from PIL import Image, ImageTk
 import numpy as np
+import os
 
 ### local-packages
 import pickle_util
@@ -330,22 +331,33 @@ class MyApp(Tk):
 
 def refresh_view_on_interval():
     """
-    Refreshes drawroi view on an interval
+        Refreshes drawroi view on an interval
     """
     seconds_interval = 2
     if app.can_refresh:
         app.set_view()    
     app.after(seconds_interval*1000, refresh_view_on_interval)
 
+def add_tkinter_display():
+    """
+       Add missing tkinter display parameter
+       Without this GUI may not work on Ubuntu
+    """
+    if os.environ.get('DISPLAY','') == '':
+        log.info(f'No display found for tkinter GUI. Using :0.0')
+        os.environ.__setitem__('DISPLAY', ':0.0')
 
-pickle_util.save("storage-oak/drawroi_running.pb", True) # notifies runoak.py to save frames for tkinter view
-app =  MyApp()
-app.protocol("WM_DELETE_WINDOW", app.on_closing)
+if __name__ == "__main__":
+    log.info("Started drawroi Process")
+    add_tkinter_display()
+    pickle_util.save("storage-oak/drawroi_running.pb", True) # notifies runoak.py to save frames for tkinter view
+    app =  MyApp()
+    app.protocol("WM_DELETE_WINDOW", app.on_closing)
 
-try:
-    #log.info(f"Refreshing drawroi on Interval")
-    #refresh_view_on_interval()
-    app.mainloop()
-except KeyboardInterrupt:
-    log.info(f"Keyboard Interrupt")
-    app.on_closing()
+    try:
+        #log.info(f"Refreshing drawroi on Interval")
+        #refresh_view_on_interval()
+        app.mainloop()
+    except KeyboardInterrupt:
+        log.info(f"Keyboard Interrupt")
+        app.on_closing()
