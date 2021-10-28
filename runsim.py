@@ -43,6 +43,10 @@ class OakSim(Oak):
         if self.play_video != None:
             self.cap = cv2.VideoCapture(self.play_video)
  
+    def disable_video_loop(self):
+        self.loop = False
+        log.info(f"Disabled Video Loop for {self.deviceID} - Last Iteration")
+ 
     def set_preview_size(self):
         if self.save_video == '360p':
             self.preview_size = (640, 360)
@@ -306,7 +310,11 @@ if __name__ == "__main__":
                         log.info("Restarted synctrack Process")
                 
                 if cv2.waitKey(1) == ord('q'):
-                    should_run = False; break  
+                    if args.video:
+                        for (camera, track) in camera_track_list:
+                            camera.disable_video_loop()
+                    else:
+                        should_run = False; break  
 
             except EOFError:
                 if camera.deviceID not in videoComplete:

@@ -19,7 +19,7 @@ fi
 }
 
 FUNC_RUNOAK () {
-gnome-terminal --geometry=$WINDOW_SIZE --title=RUNOAK --working-directory=$OAK_DIR -- bash -c './runoak.py -track'
+gnome-terminal --geometry=$WINDOW_SIZE --title=RUNOAK --working-directory=$OAK_DIR -- bash -c 'source venv/bin/activate; ./runoak.py -track'
 xdotool search -name RUNOAK windowminimize
 }
 

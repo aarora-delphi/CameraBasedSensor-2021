@@ -32,7 +32,7 @@ class TrackSync():
         
         self.offset = int(subprocess.check_output("./script/get_timezone.sh").strip()) # gets tz diff in seconds from utc
         self.buffer_file = f"storage-oak/event_buffer.pb"
-        self.event_buffer = pickle_util.load(self.buffer_file, error_return = deque(maxlen=2000)) # store last 2K events
+        self.event_buffer = pickle_util.load(self.buffer_file, error_return = deque(maxlen=65535)) # store last 65K events
     
     def set_connect(self, connect):
         self.connect = connect != (None, None, None)
@@ -121,6 +121,7 @@ class TrackSync():
         
         if message == '{"get":"serialnumber"}':
             self.send_response(response='{"serialnumber":"GXXXX301XXXXX"}', encode_type = 'str') 
+            # TO DO - extract system serial number instead of hardcoding
 
         elif message == '{"get":"partnumber"}':
             self.send_response(response='{"partnumber":"2500-TIU-2000"}', encode_type = 'str')
@@ -134,7 +135,7 @@ class TrackSync():
         elif len(message) == 11 and message[:6] == 'Event|' and self.event_buffer:
             self.send_missing_events(message)
         
-        # boot sync
+        # hourly sync
         elif message == '1001053030303030301003c8':
             self.send_response(response = '1006051003E8') # response 1
 
@@ -252,7 +253,7 @@ class TrackSync():
         
         self.conn.sendall(to_send)
         log.info(f"SENT RESPONSE: {response} - Encoded as {to_send}")
-        self.heartbeat_timer = time.monotonic() # reset timer
+        # self.heartbeat_timer = time.monotonic() # reset timer, commented to test necessity
     
     def retrieve_event_from_buffer(self, event):
         """
