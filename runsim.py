@@ -20,7 +20,7 @@ from synctrack import TrackSync, synctrackmain
 
 class OakSim(Oak):
 
-    def __init__(self, name = "OAK1", deviceID = None, save_video = None, play_video = None, speed = 1, skip = 0, loop = False):
+    def __init__(self, name = "OAK1", deviceID = None, save_video = None, play_video = None, speed = 1, skip = 0, loop = 0, full = False):
         super().__init__(name, deviceID)
         
         self.save_video = save_video
@@ -28,6 +28,7 @@ class OakSim(Oak):
         self.speed = int(speed)
         self.skip = int(int(skip) / self.speed)
         self.loop = loop
+        self.full = full
         
         if self.play_video != None:
             self.play_video = str((Path(__file__).parent / Path(self.play_video)).resolve().absolute())
@@ -43,9 +44,17 @@ class OakSim(Oak):
         if self.play_video != None:
             self.cap = cv2.VideoCapture(self.play_video)
  
-    def disable_video_loop(self):
-        self.loop = False
-        log.info(f"Disabled Video Loop for {self.deviceID} - Last Iteration")
+    def disable_video_loop(self, loop_count):
+        self.loop -= loop_count
+        
+        if self.loop < 0:
+            log.info("self.loop ({self.loop}) is less than 0, setting to 0")
+            self.loop = 0
+        
+        log.info(f"Disabled Video Loop for {self.deviceID} - Loops left: {self.loop}")
+    
+    def get_loop_count(self):
+        return self.loop
  
     def set_preview_size(self):
         if self.save_video == '360p':
@@ -104,6 +113,9 @@ class OakSim(Oak):
 
         manip_crop.initialConfig.setResize(300, 300)
         manip_crop.initialConfig.setFrameType(dai.ImgFrame.Type.BGR888p)
+        
+        if self.full:
+            manip_crop.initialConfig.setResizeThumbnail(300, 300)
 
         # Linking
         if self.play_video == None:
@@ -171,6 +183,9 @@ class OakSim(Oak):
                 self.qIn_Frame.send(img)
             else:
                 if self.loop:
+                    self.loop -= 1
+                    print(f"Loops left for {self.deviceID}: {self.loop}")
+                    
                     self.cap = cv2.VideoCapture(self.play_video)    
                 else:
                     raise EOFError
@@ -234,7 +249,8 @@ def parse_arguments():
     parser.add_argument('-video', '--video', action="store_true", default = None, help="Run Video as Input")
     parser.add_argument('-speed', '--speed', default = 1, type = int, help="Speed of Video Playback - Default: 1")
     parser.add_argument('-skip', '--skip', default = 0, type = int, help="Frames to delay video playback - Compounded with # of OAK")
-    parser.add_argument('-loop', '--loop', action="store_true", default = False, help="Loop Video Playback Indefinitely")
+    parser.add_argument('-loop', '--loop', action="store_true", default = False, help="Loop Video Playback a Million Times")
+    parser.add_argument('-full', '--full', action="store_true", default = False, help="Use letterboxing for 16:9 aspect ratio frame")
     args = parser.parse_args()
     
     if args.video == True:
@@ -274,7 +290,7 @@ def getCam(device_id, args, count):
         Returns the Oak Object
     """
     return OakSim(deviceID = device_id, save_video = args.record, play_video = args.video, \
-                  speed = args.speed, skip = args.skip*count, loop = args.loop) 
+                  speed = args.speed, skip = args.skip*count, loop = 3 if args.loop else 0, full = args.full) 
 
 if __name__ == "__main__":
     log.info("Started runsim Process\n\n")
@@ -310,9 +326,10 @@ if __name__ == "__main__":
                         log.info("Restarted synctrack Process")
                 
                 if cv2.waitKey(1) == ord('q'):
-                    if args.video:
+                    if args.video and args.loop:
+                        loop_count = camera_track_list[0][0].get_loop_count()
                         for (camera, track) in camera_track_list:
-                            camera.disable_video_loop()
+                            camera.disable_video_loop(loop_count)
                     else:
                         should_run = False; break  
 
