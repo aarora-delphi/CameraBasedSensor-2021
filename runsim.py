@@ -254,7 +254,8 @@ def parse_arguments():
     args = parser.parse_args()
     
     if args.video == True:
-       args.video = './video/video08312021.mp4' 
+       # args.video = './video/video08312021.mp4' 
+       args.video = './video/video10282021.mp4' 
        
     return args
 
@@ -290,7 +291,7 @@ def getCam(device_id, args, count):
         Returns the Oak Object
     """
     return OakSim(deviceID = device_id, save_video = args.record, play_video = args.video, \
-                  speed = args.speed, skip = args.skip*count, loop = 3 if args.loop else 0, full = args.full) 
+                  speed = args.speed, skip = args.skip*count, loop = 1000000 if args.loop else 0, full = args.full) 
 
 if __name__ == "__main__":
     log.info("Started runsim Process\n\n")
