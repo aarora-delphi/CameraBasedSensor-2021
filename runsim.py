@@ -175,8 +175,12 @@ class OakSim(Oak):
                 img = dai.ImgFrame()
                 img.setData(self.to_planar(video_frame, (300, 300))) # tried (video_height, video_width) 
                 img.setTimestamp(time.monotonic())
-                img.setWidth(300) # tried video_width
-                img.setHeight(300) # tried video_height
+                
+                if self.full:
+                    img.setWidth(self.preview_size[0]); img.setHeight(self.preview_size[1])
+                else:
+                    img.setWidth(300); img.setHeight(300)
+                    
                 img.setType(dai.ImgFrame.Type.BGR888p)
         
                 # Use input queue to send video frame to device
@@ -212,6 +216,10 @@ class OakSim(Oak):
         self.check_drawroi() # stores frame for use in drawroi.py
     
     def to_planar(self, arr: np.ndarray, shape: tuple) -> np.ndarray:
+        
+        if self.full:
+            return arr.transpose(2, 0, 1).flatten()
+        
         return self.center_crop(arr, shape).transpose(2, 0, 1).flatten()
     
     def center_crop(self, img, dim):
