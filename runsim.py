@@ -303,6 +303,7 @@ def getCam(device_id, args, count):
 
 if __name__ == "__main__":
     log.info("Started runsim Process\n\n")
+    time.sleep(5) # allows time for all OAK to be present in autodiscovery
     args = parse_arguments()
     ### dconn = DConnect(connect = args.track)
     
