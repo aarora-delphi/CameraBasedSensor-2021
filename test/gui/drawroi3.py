@@ -1,6 +1,12 @@
 import tkinter as tk
 from PIL import Image, ImageTk
 
+import os
+
+if os.environ.get('DISPLAY','') == '':
+    print('no display found. Using :0.0')
+    os.environ.__setitem__('DISPLAY', ':0.0')
+
 WIDTH, HEIGHT = 900, 900
 topx, topy, botx, boty = 0, 0, 0, 0
 rect_id = None
