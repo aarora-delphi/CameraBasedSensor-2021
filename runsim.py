@@ -20,7 +20,7 @@ from synctrack import TrackSync, synctrackmain
 
 class OakSim(Oak):
 
-    def __init__(self, name = "OAK1", deviceID = None, save_video = None, play_video = None, speed = 1, skip = 0, loop = 0, full = False):
+    def __init__(self, name = "OAK1", deviceID = None, save_video = None, play_video = None, speed = 1, skip = 0, loop = 0, full = False, sync = False):
         super().__init__(name, deviceID)
         
         self.save_video = save_video
@@ -29,6 +29,7 @@ class OakSim(Oak):
         self.skip = int(int(skip) / self.speed)
         self.loop = loop
         self.full = full
+        self.sync = sync
         
         if self.play_video != None:
             self.play_video = str((Path(__file__).parent / Path(self.play_video)).resolve().absolute())
@@ -80,6 +81,7 @@ class OakSim(Oak):
         else:
             xinFrame = pipeline.createXLinkIn()
             xinFrame.setStreamName("inFrame")
+        
         nn = pipeline.createMobileNetDetectionNetwork()
         manip_crop = pipeline.create(dai.node.ImageManip)
 
@@ -126,9 +128,13 @@ class OakSim(Oak):
         else:
             xinFrame.out.link(manip_crop.inputImage)
             xinFrame.out.link(xoutVideo.input)
-       
+        
+        if self.sync:
+            nn.passthrough.link(xoutFrame.input) # image used for NN is sent to xoutFrame
+        else:
+            manip_crop.out.link(xoutFrame.input)
+        
         manip_crop.out.link(nn.input)
-        manip_crop.out.link(xoutFrame.input)
         nn.out.link(xoutNN.input)
         
         return pipeline
@@ -194,9 +200,16 @@ class OakSim(Oak):
                 else:
                     raise EOFError
         
+        if self.sync:
+            # Use blocking get() call to catch frame and inference result synced
+            inRgb = self.qRgb.get()
+            inDet = self.qDet.get()
+        else:
+            # Use tryGet (nonblocking) which will return the available data or None otherwise
+            inRgb = self.qRgb.tryGet()
+            inDet = self.qDet.tryGet()
+
         inVideo = self.qVideo.tryGet() # new
-        inRgb = self.qRgb.tryGet()
-        inDet = self.qDet.tryGet()
 
         if inVideo is not None: # new
             
@@ -259,6 +272,7 @@ def parse_arguments():
     parser.add_argument('-skip', '--skip', default = 0, type = int, help="Frames to delay video playback - Compounded with # of OAK")
     parser.add_argument('-loop', '--loop', action="store_true", default = False, help="Loop Video Playback a Million Times")
     parser.add_argument('-full', '--full', action="store_true", default = False, help="Use letterboxing for 16:9 aspect ratio frame")
+    parser.add_argument('-sync', '--sync', action="store_true", default = False, help="Sync RGB output with NN output")
     args = parser.parse_args()
     
     if args.video == True:
@@ -298,8 +312,14 @@ def getCam(device_id, args, count):
     """
         Returns the Oak Object
     """
-    return OakSim(deviceID = device_id, save_video = args.record, play_video = args.video, \
-                  speed = args.speed, skip = args.skip*count, loop = 1000000 if args.loop else 0, full = args.full) 
+    return OakSim(deviceID = device_id, \
+                save_video = args.record, \
+                play_video = args.video, \
+                speed = args.speed, \
+                skip = args.skip*count, \
+                loop = 1000000 if args.loop else 0, \
+                full = args.full, \
+                sync = args.sync) 
 
 if __name__ == "__main__":
     log.info("Started runsim Process\n\n")
