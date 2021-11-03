@@ -93,6 +93,10 @@ class TrackSync():
         elif message == '{"get":"partnumber"}':
             self.send_response(response='{"partnumber":"2500-TIU-2000"}', encode_type = 'str')
 
+            ### add valid message conn
+            if self.message_conn == []:
+                self.append_message_conn(self.conn)
+
         elif message == '{"get":"firmwarepartno"}':
             self.send_response(response='{"firmwarepartno":"xxxxxx"}', encode_type = 'str')
         
@@ -106,15 +110,15 @@ class TrackSync():
         elif message == '1001053030303030301003c8':
             self.send_response(response = '1006051003E8') # response 1
 
-            ### invalid message_conn set
-            self.close_message_conn(self.conn)
-
         elif len(message) == 40 and message[:6] == '100110':
             self.send_response(response = '1006101003DD') # response 2
             self.apply_sync_datetime(message)
 
         elif message == '1001061003e7':
             self.send_response(response = '1006061003E7') # response 3
+
+            ### invalid message_conn set
+            self.close_message_conn(self.conn)
 
 
     def apply_sync_datetime(self, message2):
@@ -335,7 +339,7 @@ def synctrackmain(work_queue, boot = True):
     
     while should_run:
     
-        readable, writable, errored = select.select(read_list, [], [], 0) # non-blocking
+        readable, writable, errored = select.select(read_list, [], read_list, 0) # non-blocking
         
         # -------------------------------------------------
         
@@ -353,25 +357,30 @@ def synctrackmain(work_queue, boot = True):
                         message = strack.decode_message(data)                        
                         strack.evaluate_message(message)
                     
-                    ###elif s == dconn.conn: # keep original connection from closing when no data present
-                    ###    pass
-                    
-                    elif strack.message_conn and s == strack.message_conn_head(): # keep original connection from closing when no data present
+                    # keep original connection from closing when no data present
+                    elif s == dconn.conn or (strack.message_conn and s == strack.message_conn_head()): 
                         pass
 
                     else:
                         log.info(f"NO CONN DATA - CLOSING {s}")
+                        read_list.remove(s)  
                         strack.close_message_conn(s)
                         s.close()
-                        read_list.remove(s)   
                 
                 except (BrokenPipeError, ConnectionResetError) as e:
                     log.error(f"{e} - ON DATA READ/REPLY - CLOSING {s}")
+                    read_list.remove(s)
                     strack.close_message_conn(s)
                     s.close()
-                    read_list.remove(s)
+
                     strack.resend_message = True
 
+        for s in errored:
+            log.info(f"CONN ERROR - CLOSING {s}")
+            read_list.remove(s)
+            strack.close_message_conn(s)
+            s.close()
+            
         # -------------------------------------------------
         
         try:
@@ -382,6 +391,8 @@ def synctrackmain(work_queue, boot = True):
                 strack.send_vehicle_message(vehicle_message) 
             else:
                 log.warning(f"NO MESSAGE CONN - Waiting for new Connection")
+                if len(read_list) > 1:
+                    strack.append_message_conn(read_list[1]) # fill message_conn with next connnection
                 time.sleep(1)
                 ### log.warning("NO MESSAGE CONN - Restarting All Connections")
                 ### strack.save_event_buffer()
@@ -392,7 +403,7 @@ def synctrackmain(work_queue, boot = True):
             pass
             
         except (BrokenPipeError, ConnectionResetError) as e:
-            log.error(f"{e} when Sending Vehicle Message / Heartbeat - Closing Head of self.message_conn")
+            log.error(f"{e} when Sending Vehicle Message / Heartbeat")
             strack.close_message_conn(strack.message_conn_head())
             if vehicle_message:
                 strack.resend_message = True
