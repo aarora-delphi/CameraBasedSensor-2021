@@ -356,7 +356,7 @@ def synctrackmain(work_queue, boot = True):
                     ###elif s == dconn.conn: # keep original connection from closing when no data present
                     ###    pass
                     
-                    elif s == strack.message_conn_head(): # keep original connection from closing when no data present
+                    elif strack.message_conn and s == strack.message_conn_head(): # keep original connection from closing when no data present
                         pass
 
                     else:
