@@ -38,7 +38,7 @@ class TrackSync():
         self.connect = connect != (None, None, None)
         self.s, self.conn, self.addr = connect
         self.message_conn = [self.conn]
-        log.info(f"self.message_conn set to {self.message_conn_head()}")
+        log.info(f"self.message_conn set to {self.message_conn_head().getpeername()[1]}")
 
 
     def timestamp(self):
@@ -71,7 +71,7 @@ class TrackSync():
             to_send = response
         
         self.conn.sendall(to_send)
-        log.info(f"SENT RESPONSE: {response} - Encoded as {to_send} to #{self.conn.fileno()} - {self.conn.getpeername()}")
+        log.info(f"SENT RESPONSE: {response} - Encoded as {to_send} to {self.conn.getpeername()[1]}")
 
 
     def evaluate_message(self, message):
@@ -85,6 +85,10 @@ class TrackSync():
         if message == '{"get":"serialnumber"}':
             self.send_response(response='{"serialnumber":"GXXXX301XXXXX"}', encode_type = 'str') 
             # TO DO - extract system serial number instead of hardcoding
+
+            ### add valid message conn
+            if self.message_conn == []:
+                self.append_message_conn(self.conn)
 
         elif message == '{"get":"partnumber"}':
             self.send_response(response='{"partnumber":"2500-TIU-2000"}', encode_type = 'str')
@@ -101,6 +105,9 @@ class TrackSync():
         # hourly sync protocol
         elif message == '1001053030303030301003c8':
             self.send_response(response = '1006051003E8') # response 1
+
+            ### invalid message_conn set
+            self.close_message_conn(self.conn)
 
         elif len(message) == 40 and message[:6] == '100110':
             self.send_response(response = '1006101003DD') # response 2
@@ -213,11 +220,11 @@ class TrackSync():
         if self.resend_message and self.last_vehicle_message != None:
             self.resend_message = False
             conn.sendall(self.last_vehicle_message)
-            log.info(f"RESENT VEH MESSAGE: {self.last_vehicle_message} to #{conn.fileno()} - {conn.getpeername()}")
+            log.info(f"RESENT VEH MESSAGE: {self.last_vehicle_message} to {conn.getpeername()[1]}")
             
         self.last_vehicle_message = message
         conn.sendall(message)
-        log.info(f"SENT VEH MESSAGE: {message} to #{conn.fileno()} - {conn.getpeername()}")
+        log.info(f"SENT VEH MESSAGE: {message} to {conn.getpeername()[1]}")
         self.heartbeat_timer = time.monotonic() # reset timer
 
 
@@ -228,7 +235,7 @@ class TrackSync():
         if conn in self.message_conn:
             self.message_conn.remove(conn)
             log.info(f"Removed from self.message_conn: {conn}")
-            log.warning(f"self.message_conn is Empty - Length {len(self.message_conn)}")
+            log.warning(f"self.message_conn Size is {len(self.message_conn)}")
     
 
     def append_message_conn(self, conn):
@@ -346,9 +353,12 @@ def synctrackmain(work_queue, boot = True):
                         message = strack.decode_message(data)                        
                         strack.evaluate_message(message)
                     
-                    elif s == dconn.conn: # keep original connection from closing when no data present
-                        pass
+                    ###elif s == dconn.conn: # keep original connection from closing when no data present
+                    ###    pass
                     
+                    elif s == strack.message_conn_head(): # keep original connection from closing when no data present
+                        pass
+
                     else:
                         log.info(f"NO CONN DATA - CLOSING {s}")
                         strack.close_message_conn(s)
@@ -371,10 +381,12 @@ def synctrackmain(work_queue, boot = True):
                 vehicle_message = work_queue.get(block=False)
                 strack.send_vehicle_message(vehicle_message) 
             else:
-                log.warning("NO MESSAGE CONN - Restarting All Connections")
-                strack.save_event_buffer()
-                restart_connect(dconn, strack, read_list)
-                read_list = [dconn.s, dconn.conn]     
+                log.warning(f"NO MESSAGE CONN - Waiting for new Connection")
+                time.sleep(1)
+                ### log.warning("NO MESSAGE CONN - Restarting All Connections")
+                ### strack.save_event_buffer()
+                ### restart_connect(dconn, strack, read_list)
+                ### read_list = [dconn.s, dconn.conn]     
         
         except queue.Empty: 
             pass

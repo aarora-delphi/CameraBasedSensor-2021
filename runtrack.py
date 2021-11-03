@@ -42,7 +42,7 @@ class DConnect():
             Accept connection
         """
         conn, addr = self.s.accept()
-        log.info(f"Found Connection from: {addr} - {conn}")
+        log.info(f"Found Connection from: {addr}")
         return conn, addr
     
     def get_conn(self):
