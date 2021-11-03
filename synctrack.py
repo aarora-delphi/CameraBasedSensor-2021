@@ -38,6 +38,7 @@ class TrackSync():
         self.connect = connect != (None, None, None)
         self.s, self.conn, self.addr = connect
         self.message_conn = [self.conn]
+        log.info(f"self.message_conn set to {self.message_conn_head()}")
 
 
     def timestamp(self):
@@ -70,7 +71,7 @@ class TrackSync():
             to_send = response
         
         self.conn.sendall(to_send)
-        log.info(f"SENT RESPONSE: {response} - Encoded as {to_send}")
+        log.info(f"SENT RESPONSE: {response} - Encoded as {to_send} to #{self.conn.fileno()} - {self.conn.getpeername()}")
 
 
     def evaluate_message(self, message):
@@ -212,11 +213,11 @@ class TrackSync():
         if self.resend_message and self.last_vehicle_message != None:
             self.resend_message = False
             conn.sendall(self.last_vehicle_message)
-            log.info(f"RESENT VEH MESSAGE: {self.last_vehicle_message}")
+            log.info(f"RESENT VEH MESSAGE: {self.last_vehicle_message} to #{conn.fileno()} - {conn.getpeername()}")
             
         self.last_vehicle_message = message
         conn.sendall(message)
-        print(f"SENT VEH MESSAGE: {message}")
+        log.info(f"SENT VEH MESSAGE: {message} to #{conn.fileno()} - {conn.getpeername()}")
         self.heartbeat_timer = time.monotonic() # reset timer
 
 
@@ -360,7 +361,7 @@ def synctrackmain(work_queue, boot = True):
                     s.close()
                     read_list.remove(s)
                     strack.resend_message = True
-        
+
         # -------------------------------------------------
         
         try:
