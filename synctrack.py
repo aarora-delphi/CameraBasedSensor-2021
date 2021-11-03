@@ -26,44 +26,26 @@ class TrackSync():
         self.name = name
         self.set_connect(connect)
         self.heartbeat_timer = time.monotonic()
-        self.error_timer = None
         self.resend_message = False
         self.last_vehicle_message = None
         
         self.offset = int(subprocess.check_output("./script/get_timezone.sh").strip()) # gets tz diff in seconds from utc
         self.buffer_file = f"storage-oak/event_buffer.pb"
-        self.event_buffer = pickle_util.load(self.buffer_file, error_return = deque(maxlen=65535)) # store last 65K events
+        self.event_buffer = pickle_util.load(self.buffer_file, error_return = deque(maxlen=65535)) # store last 65K events (max 65535)
     
+
     def set_connect(self, connect):
         self.connect = connect != (None, None, None)
         self.s, self.conn, self.addr = connect
         self.message_conn = [self.conn]
 
-    def errorbeat(self, second_interval = 240):
+
+    def timestamp(self):
         """
-            Used as a failsafe to exit synctrack
-            Returns True if second_interval has passed since error
+            Returns the epoch timestamp with offset applied
         """
-        current_time = time.monotonic()
-        
-        # first time method is called
-        if self.error_timer == None:
-            self.error_timer = current_time 
-            log.info(f"Setting self.error_timer to {current_time}")
-            return False
-        
-        # if method has not been called in a while - set self.error_timer
-        elif current_time - self.error_timer > second_interval * 1.5:
-            log.info(f"Resetting self.error_timer to {current_time}")
-            self.error_timer = current_time
-            return False
-        
-        # if method is actively being used, this action will occur
-        elif current_time - self.error_timer > second_interval:
-            log.info("Condition met for self.error_timer")
-            return True
-                
-        return False
+        return int(time.time()) + self.offset
+
 
     def heartbeat(self, second_interval = 300):
         """
@@ -73,44 +55,24 @@ class TrackSync():
         if current_time - self.heartbeat_timer > second_interval:
             self.conn = self.message_conn_head()
             self.send_response(response=f'000000{self.timestamp()}00000', encode_type = 'str')
-            self.heartbeat_timer = current_time
-
-    def sync_on_heartbeat(self):
-        """
-            Command to Sync with Insight Track with heartBeat during Regular Interval
-        """
-        return self.sync_wrapper(self.heartbeat)
-
-    def sync_on_boot(self):
-        """
-            Command to Sync with Insight Track on Track Boot
-        """
-        log.info(f"Performing Boot Sync")
-        return self.sync_wrapper(self.sync_time)
-
-    def sync_on_recv(self):
-        """
-            Command to Sync with Insight Track during Regular Operation
-        """
-        print(f"[INFO] sync")
-        return self.sync_wrapper(self.sync_listen) 
-
-    def sync_listen(self):
-        """
-            Respond to Messages Received from Insight Track
-        """
-
-        try:
-            self.receive_message(timeout_sec = 1, decode_type = 'str')
-        except TimeoutError:
-            pass
-            
-        if self.message == "": 
-            return
+            self.heartbeat_timer = current_time        
         
-        self.evaluate_message(self.message)
+
+    def send_response(self, response, encode_type = 'hex'):
+        """
+            Send a Response to Insight Track
+        """
+        if encode_type == 'hex':
+            to_send = bytes.fromhex(response)
+        elif encode_type == 'str':
+            to_send = bytes(response+'\n', encoding='utf-8')
+        elif encode_type == 'byte':
+            to_send = response
         
-        
+        self.conn.sendall(to_send)
+        log.info(f"SENT RESPONSE: {response} - Encoded as {to_send}")
+
+
     def evaluate_message(self, message):
         """
             Given a message, evaluate response to send
@@ -135,7 +97,7 @@ class TrackSync():
         elif len(message) == 11 and message[:6] == 'Event|' and self.event_buffer:
             self.send_missing_events(message)
         
-        # hourly sync
+        # hourly sync protocol
         elif message == '1001053030303030301003c8':
             self.send_response(response = '1006051003E8') # response 1
 
@@ -146,56 +108,6 @@ class TrackSync():
         elif message == '1001061003e7':
             self.send_response(response = '1006061003E7') # response 3
 
-
-    def send_missing_events(self, event_message):
-        """
-            Sends events from start_event to latest event. Specification dictates start and end messages.
-        """    
-        start_event = event_message[6:]
-        current_event = self.event_buffer[-1].decode()[-6:-1]
-
-        self.send_response(response=f'254000{self.timestamp()}00000', encode_type = 'str') # start message cycle
-                
-        for int_event in range(int(start_event),int(current_event)+1): # loop to send requested to current events
-            str_event = str(int_event).zfill(5) 
-            buffer_event = self.retrieve_event_from_buffer(str_event)
-            if buffer_event:
-                self.send_response(response=buffer_event, encode_type = 'byte')
-            
-        self.send_response(response=f'255000{self.timestamp()}00000', encode_type = 'str') # end message cycle   
-
-
-    def timestamp(self):
-        """
-            Returns the epoch timestamp with offset applied
-        """
-        return int(time.time()) + self.offset
-    
-    def sync_time(self):
-        """
-            Send 3 responses to Delphi Track
-            Parse the receive message 2
-            Set the date and time of local Zotac using message 2
-        """
-        self.send_response(response = '1006051003E8') # response 1
-        self.send_response(response = '1006101003DD') # response 2
-        self.send_response(response = '1006061003E7') # response 3
-
-        message123 = self.receive_message()
-        log.info(f"MESSAGE: {message123}")
-
-        if len(message123) < 74:
-            log.info("Aborting Boot Sync")
-            return
-
-        message1 = message123[:24]
-        message2 = message123[24:-12]
-        message3 = message123[-12:]
-
-        log.info(f"MESSAGE123 - {message1} {message2} {message3}")
-        assert message123 == message1 + message2 + message3
-        
-        self.apply_sync_datetime(message2)
 
     def apply_sync_datetime(self, message2):
         """
@@ -240,21 +152,23 @@ class TrackSync():
     
         return message_parsed
 
-    def send_response(self, response, encode_type = 'hex'):
+    def send_missing_events(self, event_message):
         """
-            Send a Response to Insight Track
-        """
-        if encode_type == 'hex':
-            to_send = bytes.fromhex(response)
-        elif encode_type == 'str':
-            to_send = bytes(response+'\n', encoding='utf-8')
-        elif encode_type == 'byte':
-            to_send = response
-        
-        self.conn.sendall(to_send)
-        log.info(f"SENT RESPONSE: {response} - Encoded as {to_send}")
-        # self.heartbeat_timer = time.monotonic() # reset timer, commented to test necessity
-    
+            Sends events from start_event to latest event. Specification dictates start and end messages.
+        """    
+        start_event = event_message[6:]
+        current_event = self.event_buffer[-1].decode()[-6:-1]
+
+        self.send_response(response=f'254000{self.timestamp()}00000', encode_type = 'str') # start message cycle
+                
+        for int_event in range(int(start_event),int(current_event)+1): # loop to send requested to current events
+            str_event = str(int_event).zfill(5) 
+            buffer_event = self.retrieve_event_from_buffer(str_event)
+            if buffer_event:
+                self.send_response(response=buffer_event, encode_type = 'byte')
+            
+        self.send_response(response=f'255000{self.timestamp()}00000', encode_type = 'str') # end message cycle   
+
     def retrieve_event_from_buffer(self, event):
         """
             Retrieves event from buffer
@@ -286,6 +200,7 @@ class TrackSync():
         log.info(f"Saving Event Buffer to Disk")
         pickle_util.save(self.buffer_file, self.event_buffer)  
 
+
     def send_vehicle_message(self, message):
         """
             Send a vehicle message to Insight Track
@@ -304,6 +219,7 @@ class TrackSync():
         print(f"SENT VEH MESSAGE: {message}")
         self.heartbeat_timer = time.monotonic() # reset timer
 
+
     def close_message_conn(self, conn):
         """
             Close message connection if matching conn
@@ -313,6 +229,7 @@ class TrackSync():
             log.info(f"Removed from self.message_conn: {conn}")
             log.warning(f"self.message_conn is Empty - Length {len(self.message_conn)}")
     
+
     def append_message_conn(self, conn):
         """
             Append message connection in self.message_conn
@@ -323,11 +240,13 @@ class TrackSync():
             log.info(f"Size of self.message_conn: {len(self.message_conn)}")
             log.info(f"Head of self.message_conn: {self.message_conn_head()}")
 
+
     def message_conn_head(self):
         """
             return first item in self.message_conn
         """
         return self.message_conn[0]
+
 
     def decode_message(self, data):
         """
@@ -340,62 +259,6 @@ class TrackSync():
             message = data.hex()
         
         return message
-
-    def receive_message(self, timeout_sec = 2, decode_type = 'hex'):
-        """
-            Catch method to apply timeout decorator to self.receive_message_operation
-        """
-        return timeout(timeout_sec)(self.receive_message_operation)(decode_type) # timeout decorator applied
-	
-    def receive_message_operation(self, decode_type):
-        """
-            Receive a Message from Insight Track
-        """
-        self.message = ""
-        while True:
-            data = self.conn.recv(1)
-            
-            if decode_type == 'hex':
-                self.message += data.hex()
-            elif decode_type == 'str':
-                self.message += data.decode()
-                
-                if data.decode() == '}':
-                    log.info("Found '}' Brace in recv")
-                    break
-            
-            if not data and self.message != "":
-                break
-
-        return self.message    
-
-    def sync_wrapper(self, func):
-        """
-            Try Except Wrapper to handle socket status on func
-            Status Code is returned
-        """
-        try:
-            func()
-        except KeyboardInterrupt:
-            log.info(f"Keyboard Interrupt")
-            return 1
-        except BrokenPipeError:
-            log.error(f"Broken Pipe")
-            return 2
-        except ConnectionResetError:
-            log.error(f"Connection Reset")
-            return 3
-        except TimeoutError:
-            log.info(f"Timer Expired")
-            return 4
-        except socket.timeout:
-            log.info(f"Socket Timer Expired")
-            return 4
-        except Exception as e:
-            log.error(f"New Exception: {e}")
-            return -1
-        
-        return 0
 
 
 def search(arr, l, h, key):
@@ -440,18 +303,6 @@ def restart_connect(dconn, strack, read_list):
     dconn.close_socket()
     dconn.set_track()
     strack.set_connect(dconn.get_conn())
-
-def mend_status(status, dconn, strack):
-    """
-        Parse Status and return if script should continue
-    """
-    if status == 1 or status == -1:
-        return False
-    if status == 2 or status == 3:
-        # restart_connect(dconn, strack)
-        return False
-    
-    return True
 
 def signal_handler(sig, frame):
     """
