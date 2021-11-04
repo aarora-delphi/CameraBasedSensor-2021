@@ -404,7 +404,12 @@ def synctrackmain(work_queue, boot = True):
             
         except (BrokenPipeError, ConnectionResetError) as e:
             log.error(f"{e} when Sending Vehicle Message / Heartbeat")
-            strack.close_message_conn(strack.message_conn_head())
+            
+            broken_conn = strack.message_conn_head()
+            read_list.remove(broken_conn)
+            strack.close_message_conn(broken_conn)
+            broken_conn.close()
+
             if vehicle_message:
                 strack.resend_message = True
         
