@@ -38,8 +38,15 @@ class TrackSync():
         self.connect = connect != (None, None, None)
         self.s, self.conn, self.addr = connect
         self.message_conn = [self.conn]
-        log.info(f"self.message_conn set to {self.message_conn_head().getpeername()[1]}")
+        self.set_message_conn_peer_id()
+        log.info(f"self.message_conn set to {self.message_conn_peer_id}")
 
+
+    def set_message_conn_peer_id(self):
+        if self.message_conn:
+            self.message_conn_peer_id = self.message_conn_head().getpeername()[1]
+        else:
+            self.message_conn_peer_id = None
 
     def timestamp(self):
         """
@@ -48,7 +55,7 @@ class TrackSync():
         return int(time.time()) + self.offset
 
 
-    def heartbeat(self, second_interval = 300):
+    def heartbeat(self, second_interval = 15): ### testing 15 sec, normally 300 sec
         """
             Sends heartbeat after 5 minutes of inactivity
         """
@@ -80,7 +87,7 @@ class TrackSync():
         """       
         message = message.rstrip() # remove newline / tab char
                 
-        log.info(f"TRACK MESSAGE RECEIVED: {message}")
+        log.info(f"TRACK MESSAGE RECEIVED: {message} from {self.conn.getpeername()[1]}")
         
         if message == '{"get":"serialnumber"}':
             self.send_response(response='{"serialnumber":"GXXXX301XXXXX"}', encode_type = 'str') 
@@ -240,6 +247,7 @@ class TrackSync():
             self.message_conn.remove(conn)
             log.info(f"Removed from self.message_conn: {conn}")
             log.warning(f"self.message_conn Size is {len(self.message_conn)}")
+            self.set_message_conn_peer_id()
     
 
     def append_message_conn(self, conn):
@@ -250,7 +258,7 @@ class TrackSync():
             self.message_conn.append(conn)
             log.info(f"Added to self.message_conn: {conn}")
             log.info(f"Size of self.message_conn: {len(self.message_conn)}")
-            log.info(f"Head of self.message_conn: {self.message_conn_head()}")
+            self.set_message_conn_peer_id()
 
 
     def message_conn_head(self):
@@ -403,7 +411,7 @@ def synctrackmain(work_queue, boot = True):
             pass
             
         except (BrokenPipeError, ConnectionResetError) as e:
-            log.error(f"{e} when Sending Vehicle Message / Heartbeat")
+            log.error(f"{e} when Sending Vehicle Message / Heartbeat to {strack.message_conn_peer_id}")
             
             broken_conn = strack.message_conn_head()
             read_list.remove(broken_conn)
