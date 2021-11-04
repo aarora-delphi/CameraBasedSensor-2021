@@ -235,7 +235,7 @@ class TrackSync():
             
         self.last_vehicle_message = message
         conn.sendall(message)
-        log.info(f"SENT VEH MESSAGE: {message} to {conn.getpeername()[1]}")
+        print(f"SENT VEH MESSAGE: {message} to {conn.getpeername()[1]}")
         self.heartbeat_timer = time.monotonic() # reset timer
 
 
