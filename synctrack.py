@@ -31,7 +31,7 @@ class TrackSync():
         
         self.offset = int(subprocess.check_output("./script/get_timezone.sh").strip()) # gets tz diff in seconds from utc
         self.buffer_file = f"storage-oak/event_buffer.pb"
-        self.event_buffer = pickle_util.load(self.buffer_file, error_return = deque(maxlen=65535)) # store last 65K events (max 65535)
+        self.event_buffer = pickle_util.load(self.buffer_file, error_return = deque(maxlen=5000)) # store last 5K events (max 65535)
     
 
     def set_connect(self, connect):
