@@ -1,202 +1,263 @@
-var completed = false;
-var dragging = false;
-var drawing = false;
-var startPoint;
-var allCircles = [];
 
-// svg tag holds the stream and draggable ROI
-var svg = d3.select('body').append('svg')
-.attr('height', 450)
-.attr('width', 800)
-.attr('style', 'background: url("/stream_feed")');
+// get methods from server
+function update_select(endpoint, select_element, notsetname) {
 
-var points = [], g;
+    fetch(endpoint)
+        .then(response => response.json())
+        .then(result => {
+            console.log("GET: " + endpoint);
+            console.log("Found: " + result['status']);
 
-var dragger = d3.behavior.drag()
-    .on('drag', handleDrag)
-    .on('dragend', function(d){
-        var polygon = d3.select('polygon');
-        var points = polygon.attr('points');
-        console.log("Polygon points: ", points);
-        sendROI(points.split(",").map(num => parseFloat(num)))
-        dragging = false;
+            // update the select element
+            var object = result['data'];
+            if (object == notsetname) {
+                var opt = document.createElement('option');
+                opt.id = object;
+                opt.innerHTML = object;
+                select_element.appendChild(opt);
+            }
+            select_element.options.namedItem(object).selected = true;
+        })
+}
+
+function update_view(endpoint, view_element) {
+
+    fetch(endpoint)
+        .then(response => response.json())
+        .then(result => {
+            console.log("GET: " + endpoint);
+            console.log("Found: " + result['status']);
+
+            // Update the view
+            view_element.src = 'data:;base64,' + result['image'];
+        })
+}
+
+function update_roi(endpoint, roi_element) {
+
+    fetch(endpoint)
+        .then(response => response.json())
+        .then(result => {
+            console.log("GET: " + endpoint);
+            console.log("Found: " + result['status']);
+
+            // update the roi
+            var ctx = roi_element.getContext('2d');
+            ctx.clearRect(0, 0, roi_element.width, roi_element.height);
+            ctx.strokeRect(result['x'], result['y'], result['width'], result['height']);
+        })
+}
+
+function shortcut_update_station(camera_id) {
+    update_select(endpoint = "/update_station/" + camera_id,
+        select_element = document.getElementById("station_" + camera_id),
+        notsetname = "Select Station");
+}
+
+function shortcut_update_focus(camera_id) {
+    update_select(endpoint = "/update_focus/" + camera_id,
+        select_element = document.getElementById("focus_" + camera_id),
+        notsetname = "X");
+}
+
+function shortcut_update_view(camera_id) {
+    update_view(endpoint = "/update_view/" + camera_id,
+        view_element = document.getElementById("view_" + camera_id));
+}
+
+function shortcut_update_roi(camera_id) {
+    update_roi(endpoint = "/update_roi/" + camera_id,
+        roi_element = document.getElementById("roi_" + camera_id));
+}
+
+// set methods to server
+function set_json(endpoint, payload) {
+
+    fetch(endpoint, {
+        method: 'post',
+        headers: {
+            'Accept': 'application/json, text/plain, */*',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 'payload': payload })
+    }).then(res => res.json())
+        .then(res => console.log(res));
+}
+
+function set_station(camera_id) {
+    var select_element = document.getElementById("station_" + camera_id);
+    var id = $(select_element).children(":selected").attr("id");
+
+    set_json(endpoint = "/update_station/" + camera_id,
+        payload = id);
+}
+
+function set_focus(camera_id) {
+    var select_element = document.getElementById("focus_" + camera_id);
+    var id = $(select_element).children(":selected").attr("id");
+
+    set_json(endpoint = "/update_focus/" + camera_id,
+        payload = id);
+}
+
+function set_roi(camera_id, roi) {
+    set_json(endpoint = "/update_roi/" + camera_id,
+        payload = roi);
+}
+
+// canvas related functions
+function init_canvas(camera_id) {
+    var canvas = get_canvas(camera_id);
+    canvas.width = 300;
+    canvas.height = 300;
+    return canvas;
+}
+
+function get_canvas(camera_id) {
+    return document.getElementById("roi_" + camera_id);
+}
+
+function draw_random(camera_id) {
+    var canvas = get_canvas(camera_id);
+    var ctx = canvas.getContext("2d");
+    ctx.fillStyle = "red";
+    ctx.fillRect(160, 240, 20, 20);
+    ctx.fillText("Im on top of the world!", 30, 30);
+}
+
+function clear_roi(camera_id) {
+    var canvas = get_canvas(camera_id);
+    var ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    console.log("Cleared ROI for " + camera_id)
+}
+
+// enables roi drawing on canvas
+function roi_listener(camera_id) {
+    // get references to the canvas and context
+    var roi_id = "roi_" + camera_id;
+    var canvas = init_canvas(camera_id);
+    var ctx = canvas.getContext("2d");
+
+    // style the context
+    ctx.strokeStyle = "blue";
+    ctx.lineWidth = 3;
+
+    // this flag is true when the user is dragging the mouse
+    var isDown = false;
+
+    // these vars will hold the starting mouse position
+    var startX;
+    var startY;
+
+    // calculate where the canvas is on the window
+    // (used to help calculate mouseX/mouseY)
+    var canvasOffset;
+    var offsetX;
+    var offsetY;
+    recalculate_offsets();
+
+    // add a scroll and resize listener to the window
+    window.addEventListener("scroll", function (event) {
+        recalculate_offsets();
+    });
+    window.addEventListener("resize", function (event) {
+        recalculate_offsets();
     });
 
-// when mouse is up, point on ROI is created and line is drawn to connect to new point
-svg.on('mouseup', function(){
-    console.log("mouse up svg");
-    if (dragging) {
-        return;
-    }
-    if (completed) {
-        return;
-    }
-    drawing = true;
-    startPoint = [d3.mouse(this)[0], d3.mouse(this)[1]];
-    
-    if(svg.select('g.drawPoly').empty()){
-        g = svg.append('g').attr('class','drawPoly');
+    // ensures drawn roi is relative to the canvas
+    function recalculate_offsets() {
+        canvasOffset = canvas.getBoundingClientRect();
+        offsetX = canvasOffset.left;
+        offsetY = canvasOffset.top;
+        // console.log("offsetXY: " + offsetX + "," + offsetY);
     }
 
-    if(d3.event.target.hasAttribute('is-handle')){
-        closePolygon();
-        return;
+    // calculate corners of rectangle given two diagonal points
+    function getTLBRCornersList(x1, y1, x2, y2) {
+        var corners = {};
+        corners.topLeft = {
+            x: Math.min(x1, x2),
+            y: Math.min(y1, y2)
+        };
+        corners.bottomRight = {
+            x: Math.max(x1, x2),
+            y: Math.max(y1, y2)
+        };
+        return [corners.topLeft.x, corners.topLeft.y, corners.bottomRight.x, corners.bottomRight.y];
     }
 
-    points.push(d3.mouse(this));
-    g.select('polyline').remove();
+    function handleMouseDown(e) {
+        e.preventDefault();
+        e.stopPropagation();
 
-    var polyline = g.append('polyline').attr('points', points).style('fill', 'none').attr('stroke','#49fb35').attr('stroke-width', 2);
+        // save the starting x/y of the rectangle
+        startX = parseInt(e.clientX - offsetX);
+        startY = parseInt(e.clientY - offsetY);
 
-    // Adding circles for each point in the points list
-    for(var i = 0; i < points.length; i++){
-        g.append('circle')
-        .attr('cx', points[i][0])
-        .attr('cy', points[i][1])
-        .attr('r', 10)
-        .attr('fill','#49fb35')
-        .attr('stroke', '#000')
-        .attr('is-handle', 'true')
-        .style({cursor: 'pointer'});
+        // set a flag indicating the drag has begun
+        isDown = true;
     }
-});
 
-// mouse move function
-svg.on('mousemove', function() {
-    console.log("mousemove function");
-    if(!drawing) return;
-    var g = d3.select('g.drawPoly');
-    g.select('line').remove();
-    var line = g.append('line')
-                .attr('x1', startPoint[0])
-                .attr('y1', startPoint[1])
-                .attr('x2', d3.mouse(this)[0] + 2)
-                .attr('y2', d3.mouse(this)[1])
-                .attr('stroke', '#49fb35')
-                .attr('stroke-width', 3);
-})
+    function handleMouseUp(e) {
+        e.preventDefault();
+        e.stopPropagation();
 
-// once a polygon is created on the frontend, close the polygon shape with opacity
-function closePolygon(){
-    console.log("closePolygon func");
-    svg.select('g.drawPoly').remove();
-    var g= svg.append('g');
-    g.append('polygon')
-    .attr('points', points)
-    .attr("opacity", ".2")
-    .attr('stroke', '#000')
-    .attr('stroke-opacity', "1")
-    .attr('stroke-width', 5)
-    .style('fill', getColor());
-
-    current_points = []
-    for (var i = 0; i < points.length; i++){
-        current_points.push(points[i][0]); // this will log x points
-        current_points.push(points[i][1]); // this will log y points
-        
-        var circle = g.selectAll('circles')
-        .data([points[i]])
-        .enter()
-        .append('circle')
-        .attr('cx', points[i][0])
-        .attr('cy', points[i][1])
-        .attr('r', 10)
-        .attr('fill', 'green')
-        .attr('stroke', '#000')
-        .attr('is-handle', 'true')
-        .style({cursor: 'move'})
-        .call(dragger);
-
-        console.log("CIRCLE:", circle.attr('cx'));
+        // the drag is over, clear the dragging flag
+        isDown = false;
     }
-    console.log("CURRENTPOINTS: ", current_points);
-    sendROI(current_points);      // send points to backend once polygon is closed
-    points.splice(0);
-    drawing = false;
-    completed = true;             // made this true keeping this true to prevent drawing once filled until user clears
-}
 
-// allows corners of ROI to be dragged on frontend
-function handleDrag() {
-    console.log("handleDrag function");
-    if(drawing) return;
-    var dragCircle = d3.select(this), newPoints = [], circle;
-    dragging = true;
-    var poly = d3.select(this.parentNode).select('polygon');
-    var circles = d3.select(this.parentNode).selectAll('circle');
-    dragCircle
-    .attr('cx', d3.event.x)
-    .attr('cy', d3.event.y);
-    for (var i = 0; i < circles[0].length; i++) {
-        circle = d3.select(circles[0][i]);
-        newPoints.push([circle.attr('cx'), circle.attr('cy')]);
+    function handleMouseOut(e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        // the drag is over, clear the dragging flag
+        isDown = false;
     }
-    poly.attr('points', newPoints);
-}
 
-// neon green color for ROI lines and points
-function getColor() {
-    return '#49fb35';
-}
+    function handleMouseMove(e) {
+        e.preventDefault();
+        e.stopPropagation();
 
-// sends ROI points to the backend
-function sendROI(points){
-    console.log("sendROI POINTS RECEIVED:", points);
-    var sendPoints = [];
-    
-    for (var i = 0; i < points.length; i+=2){
-        sendPoints.push({x: Math.round(points[i]), y: Math.round(points[i+1])});
-    	}
+        // if we're not dragging, just return
+        if (!isDown) {
+            return;
+        }
 
-	console.log("SENDING POINTS TO BACKEND", sendPoints);
+        // get the current mouse position
+        mouseX = parseInt(e.clientX - offsetX);
+        mouseY = parseInt(e.clientY - offsetY);
+        // console.log("startXY mouseXY: " + startX + " " + startY + " " + mouseX + " " + mouseY);
 
-    $.post("/record_roi",
-    {
-        roi_coord: sendPoints
-    });  
-}
+        // Put your mousemove stuff here
 
-// removes ROI drawn from frontend
-function removeROI(){
-		console.log("REMOVE CLICKED")
-		svg.selectAll('*').remove();
-		completed = false;
-	}
+        // clear the canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-// draws existing ROI if available from backend
-function cameraSwitchOnReload(points){
-    console.log("CAMERA SWITCH TRIGGERED");
-    svg.select('g.drawPoly').remove();
-    var g= svg.append('g');
-    g.append('polygon')
-    .attr('points', points)
-    .attr("opacity", ".2")
-    .attr('stroke', '#000')
-    .attr('stroke-opacity', "1")
-    .attr('stroke-width', 5)
-    .style('fill', getColor());
+        // calculate the rectangle width/height based
+        // on starting vs current mouse position
+        var width = mouseX - startX;
+        var height = mouseY - startY;
 
-    current_points = []
-    for (var i = 0; i < points.length; i++){
-        current_points.push(points[i]);
-        var circle = g.selectAll('circles')
-        .data([points[i]])
-        .enter()
-        .append('circle')
-        .attr('cx', points[i][0])
-        .attr('cy', points[i][1])
-        .attr('r', 10)
-        .attr('fill', 'green')
-        .attr('stroke', '#000')
-        .attr('is-handle', 'true')
-        .style({cursor: 'move'})
-        .call(dragger);
+        // draw a new rect from the start position 
+        // to the current mouse position
+        ctx.strokeRect(startX, startY, width, height);
 
-        console.log("CIRCLE:", circle.attr('cx'));
     }
-    
-    sendROI(current_points);      // send points to backend once polygon is closed
-    points.splice(0);
-    drawing = false;
-    completed = true;             //made this true keeping this true to prevent drawing once filled until user clears
+
+    // listen for mouse events
+    $("#" + roi_id).mousedown(function (e) {
+        handleMouseDown(e);
+    });
+    $("#" + roi_id).mousemove(function (e) {
+        handleMouseMove(e);
+    });
+    $("#" + roi_id).mouseup(function (e) {
+        handleMouseUp(e);
+        set_roi(camera_id, getTLBRCornersList(startX, startY, mouseX, mouseY));
+    });
+    $("#" + roi_id).mouseout(function (e) {
+        handleMouseOut(e);
+    });
+
 }

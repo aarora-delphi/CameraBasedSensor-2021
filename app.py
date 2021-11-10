@@ -39,10 +39,12 @@ def update_roi(camera_id):
         Function called when the user updates the ROI.
     """
     if request.method == 'GET':
-        return control.get_roi(camera_id)
+        x1, y1, x2, y2 = control.get_roi(camera_id)
+        return jsonify({'status': True, 'x': x1, 'y': y1, 'width': x2-x1, 'height': y2-y1})
+    
     elif request.method == 'POST':
         print(f"POST Request JSON: {request.json}")
-        status = control.set_roi(camera_id, request.json['payload'])
+        status = control.set_roi(camera_id, tuple(request.json['payload']))
         return jsonify({'status': status, 'roi': request.json['payload']})
 
 @app.route('/update_view/<camera_id>', methods=['GET'])
@@ -65,7 +67,8 @@ def update_station(camera_id):
     Returns the Station for a Camera
     """
     if request.method == 'GET':
-        return control.get_station(camera_id)
+        return jsonify({'status': True, 'data': control.get_station(camera_id)})
+    
     elif request.method == 'POST':
         print(f"POST Request JSON: {request.json}")
         status = control.set_station(camera_id, request.json['payload'])
@@ -78,7 +81,8 @@ def update_focus(camera_id):
     Returns the Focus Level for a Camera
     """
     if request.method == 'GET':
-        return control.get_focus(camera_id)
+        return jsonify({'status': True, 'data': control.get_focus(camera_id)})
+    
     elif request.method == 'POST':
         print(f"POST Request JSON: {request.json}")
         status = control.set_focus(camera_id, request.json['payload'])

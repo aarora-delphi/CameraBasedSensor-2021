@@ -2,8 +2,8 @@
 <html lang="en">
 
 <head>
-    <script src="https://cdn.jsdelivr.net/d3js/3.5.9/d3.min.js"></script>
     <link rel="stylesheet" href="../static/style.css">
+    <script src="../static/script.js"></script>
 </head>
 
 {% macro cameraComponent(name) -%}
@@ -58,241 +58,17 @@
 {% endblock %}
 
 {% block script %}
-
 <script>
-    function update_select(endpoint, select_element, notsetname) {
-
-        fetch(endpoint)
-            .then(response => response.text())
-            .then(object => {
-                console.log("GET: " + endpoint);
-                console.log("Found: " + object);
-                if (object == notsetname) {
-                    var opt = document.createElement('option');
-                    opt.id = object;
-                    opt.innerHTML = object;
-                    select_element.appendChild(opt);
-                }
-                select_element.options.namedItem(object).selected = true;
-            })
-    }
-
-    function update_view(endpoint, view_element) {
-
-        fetch(endpoint)
-            .then(response => response.json())
-            .then(result => {
-                console.log("GET: " + endpoint);
-                console.log("Found: " + result['status']);
-                view_element.src = 'data:;base64,' + result['image'];
-            })
-    }
-
-    function set_select(endpoint, select_element) {
-        var id = $(select_element).children(":selected").attr("id");
-
-        fetch(endpoint, {
-            method: 'post',
-            headers: {
-                'Accept': 'application/json, text/plain, */*',
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ 'payload': id })
-        }).then(res => res.json())
-            .then(res => console.log(res));
-    }
-
-    function set_station(camera_id) {
-        set_select(endpoint = "/update_station/" + camera_id,
-            select_element = document.getElementById("station_" + camera_id));
-    }
-
-    function set_focus(camera_id) {
-        set_select(endpoint = "/update_focus/" + camera_id,
-            select_element = document.getElementById("focus_" + camera_id));
-    }
-
-    function get_canvas(camera_id) {
-        var canvas = document.getElementById("roi_" + camera_id);
-        canvas.width = 300;
-        canvas.height = 300;
-        return canvas;
-    }
-
-    function draw_random(camera_id) {
-        var canvas = get_canvas(camera_id);
-        var ctx = canvas.getContext("2d");
-        ctx.fillStyle = "red";
-        ctx.fillRect(160, 240, 20, 20);
-        ctx.fillText("Im on top of the world!", 30, 30);
-    }
-
-    function clear_roi(camera_id) {
-        var canvas = get_canvas(camera_id);
-        var ctx = canvas.getContext("2d");
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        console.log("Cleared ROI for " + camera_id)
-    }
-
-    function shortcut_update_station(camera_id) {
-        update_select(endpoint = "/update_station/" + camera_id,
-            select_element = document.getElementById("station_" + camera_id),
-            notsetname = "Select Station");
-    }
-
-    function shortcut_update_focus(camera_id) {
-        update_select(endpoint = "/update_focus/" + camera_id,
-            select_element = document.getElementById("focus_" + camera_id),
-            notsetname = "X");
-    }
-
-    function shortcut_update_view(camera_id) {
-        update_view(endpoint = "/update_view/" + camera_id,
-            view_element = document.getElementById("view_" + camera_id));
-    }
-
     $("#camera_container > div").each(function (index) {
         var camera_id = $(this).attr("id");
         console.log(camera_id);
         shortcut_update_station(camera_id);
         shortcut_update_focus(camera_id);
         shortcut_update_view(camera_id);
-        //draw_random(camera_id);
-
+        shortcut_update_roi(camera_id);
+        roi_listener(camera_id);
     });
 </script>
-
-
-<script>
-    function roi_listener(camera_id) {
-        // get references to the canvas and context
-        var roi_id = "roi_" + camera_id;
-
-        var canvas = get_canvas(camera_id);
-        var ctx = canvas.getContext("2d");
-
-        // style the context
-        ctx.strokeStyle = "blue";
-        ctx.lineWidth = 3;
-
-        // calculate where the canvas is on the window
-        // (used to help calculate mouseX/mouseY)
-
-        var $canvas = $("#" + roi_id);
-        var canvasOffset = $canvas.offset();
-        var offsetX = canvasOffset.left;
-        var offsetY = canvasOffset.top;
-        var scrollX = $canvas.scrollLeft();
-        var scrollY = $canvas.scrollTop();
-
-        function recalculate_offsets() {
-            $canvas = $("#" + roi_id);
-            canvasOffset = $canvas.offset();
-            offsetX = canvasOffset.left;
-            offsetY = canvasOffset.top;
-            scrollX = $canvas.scrollLeft();
-            scrollY = $canvas.scrollTop();
-        }
-
-        // this flage is true when the user is dragging the mouse
-        var isDown = false;
-
-        // these vars will hold the starting mouse position
-        var startX;
-        var startY;
-
-
-        function handleMouseDown(e) {
-            e.preventDefault();
-            e.stopPropagation();
-
-            // save the starting x/y of the rectangle
-            startX = parseInt(e.clientX - offsetX);
-            startY = parseInt(e.clientY - offsetY);
-
-            // set a flag indicating the drag has begun
-            isDown = true;
-        }
-
-        function handleMouseUp(e) {
-            e.preventDefault();
-            e.stopPropagation();
-
-            // the drag is over, clear the dragging flag
-            isDown = false;
-        }
-
-        function handleMouseOut(e) {
-            e.preventDefault();
-            e.stopPropagation();
-
-            // the drag is over, clear the dragging flag
-            isDown = false;
-        }
-
-        function handleMouseMove(e) {
-            e.preventDefault();
-            e.stopPropagation();
-
-            // if we're not dragging, just return
-            if (!isDown) {
-                return;
-            }
-
-            // get the current mouse position
-            mouseX = parseInt(e.clientX - offsetX);
-            mouseY = parseInt(e.clientY - offsetY);
-
-            // Put your mousemove stuff here
-
-            // clear the canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // calculate the rectangle width/height based
-            // on starting vs current mouse position
-            var width = mouseX - startX;
-            var height = mouseY - startY;
-
-            // draw a new rect from the start position 
-            // to the current mouse position
-            ctx.strokeRect(startX, startY, width, height);
-
-        }
-
-        // listen for mouse events
-        $("#" + roi_id).mousedown(function (e) {
-            handleMouseDown(e);
-            //window.alert('mousedown clicked')
-        });
-        $("#" + roi_id).mousemove(function (e) {
-            handleMouseMove(e);
-            //window.alert('movemouse clicked')
-            //recalculate_offsets() - does not help
-
-        });
-        $("#" + roi_id).mouseup(function (e) {
-            handleMouseUp(e);
-            //window.alert('mouseup clicked')
-        });
-        $("#" + roi_id).mouseout(function (e) {
-            handleMouseOut(e);
-            //window.alert('mouseout clicked')
-        });
-
-    }
-</script>
-
-<script>
-    $("#camera_container > div").each(function (index) {
-        var camera_id = $(this).attr("id");
-        console.log(camera_id);
-        roi_listener(camera_id); //needs to be fixed, save_roi, load_roi, draw_roi correctly - even on page move
-    });
-</script>
-
-
-
-
 {% endblock %}
 
 </html>

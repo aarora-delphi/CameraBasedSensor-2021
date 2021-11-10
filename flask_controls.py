@@ -32,7 +32,7 @@ class AppControls():
         
         # remove after testing is complete
         if self.cameralist != ["A", "B", "C"]:
-            for sample in ["A", "B", "C", "D", "E"]:
+            for sample in ["172_16_15_70", "B", "C", "D", "E"]:
                 self.cameralist.append(sample)
 
     def init_station(self):
@@ -145,7 +145,12 @@ class AppControls():
         """
             Loads the roi for camera_id
         """
-        pass
+        if camera_id in self.bboxhash and len(self.bboxhash[camera_id]) > 0:
+            return self.bboxhash[camera_id][0]
+        else:
+            default_roi = (50,50,250,250)
+            log.warning(f"No ROI found for {camera_id}, returning default ROI {default_roi}")
+            return default_roi
 
     def set_roi(self, camera_id, roi):
         """
