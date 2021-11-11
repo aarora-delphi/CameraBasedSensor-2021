@@ -32,7 +32,7 @@ class AppControls():
         
         # remove after testing is complete
         if self.cameralist != ["A", "B", "C"]:
-            for sample in ["172_16_15_70", "B", "C", "D", "E"]:
+            for sample in ["172.16.15.70", "B", "C", "D", "E"]:
                 self.cameralist.append(sample)
 
     def init_station(self):

@@ -134,8 +134,11 @@ function clear_roi(camera_id) {
 
 // enables roi drawing on canvas
 function roi_listener(camera_id) {
+
+    // escape periods in camera_id with 2 backslashes
+    var roi_id = "#roi_" + camera_id.replace(/\./g, "\\.");
+
     // get references to the canvas and context
-    var roi_id = "roi_" + camera_id;
     var canvas = init_canvas(camera_id);
     var ctx = canvas.getContext("2d");
 
@@ -170,7 +173,7 @@ function roi_listener(camera_id) {
         canvasOffset = canvas.getBoundingClientRect();
         offsetX = canvasOffset.left;
         offsetY = canvasOffset.top;
-        // console.log("offsetXY: " + offsetX + "," + offsetY);
+        // console.log(camera_id + " offsetXY: " + offsetX + "," + offsetY);
     }
 
     // calculate corners of rectangle given two diagonal points
@@ -227,7 +230,7 @@ function roi_listener(camera_id) {
         // get the current mouse position
         mouseX = parseInt(e.clientX - offsetX);
         mouseY = parseInt(e.clientY - offsetY);
-        // console.log("startXY mouseXY: " + startX + " " + startY + " " + mouseX + " " + mouseY);
+        // console.log(camera_id + " startXY mouseXY: " + startX + " " + startY + " " + mouseX + " " + mouseY);
 
         // Put your mousemove stuff here
 
@@ -246,17 +249,17 @@ function roi_listener(camera_id) {
     }
 
     // listen for mouse events
-    $("#" + roi_id).mousedown(function (e) {
+    $(roi_id).mousedown(function (e) {
         handleMouseDown(e);
     });
-    $("#" + roi_id).mousemove(function (e) {
+    $(roi_id).mousemove(function (e) {
         handleMouseMove(e);
     });
-    $("#" + roi_id).mouseup(function (e) {
+    $(roi_id).mouseup(function (e) {
         handleMouseUp(e);
         set_roi(camera_id, getTLBRCornersList(startX, startY, mouseX, mouseY));
     });
-    $("#" + roi_id).mouseout(function (e) {
+    $(roi_id).mouseout(function (e) {
         handleMouseOut(e);
     });
 
