@@ -117,12 +117,17 @@ function get_canvas(camera_id) {
     return document.getElementById("roi_" + camera_id);
 }
 
-function draw_random(camera_id) {
+function draw_text(camera_id, caller, toggle = "false") {
+    if (toggle == "false") {
+        return;
+    }
+
     var canvas = get_canvas(camera_id);
     var ctx = canvas.getContext("2d");
-    ctx.fillStyle = "red";
-    ctx.fillRect(160, 240, 20, 20);
-    ctx.fillText("Im on top of the world!", 30, 30);
+    ctx.fillStyle = "white";
+    ctx.font = "15px Arial";
+    ctx.clearRect(0, 0, 300, 20);
+    ctx.fillText(caller + " called!", 5, 15);
 }
 
 function clear_roi(camera_id) {
@@ -163,9 +168,11 @@ function roi_listener(camera_id) {
     // add a scroll and resize listener to the window
     window.addEventListener("scroll", function (event) {
         recalculate_offsets();
+        draw_text(camera_id, "scroll");
     });
     window.addEventListener("resize", function (event) {
         recalculate_offsets();
+        draw_text(camera_id, "resize");
     });
 
     // ensures drawn roi is relative to the canvas
@@ -190,13 +197,22 @@ function roi_listener(camera_id) {
         return [corners.topLeft.x, corners.topLeft.y, corners.bottomRight.x, corners.bottomRight.y];
     }
 
-    function handleMouseDown(e) {
+    function handleMouseDown(e, type = "mouse") {
         e.preventDefault();
         e.stopPropagation();
 
+        if (type == "touch") {
+            var clientX = e.originalEvent.touches[0].clientX;
+            var clientY = e.originalEvent.touches[0].clientY;
+        }
+        else {
+            var clientX = e.clientX;
+            var clientY = e.clientY;
+        }
+
         // save the starting x/y of the rectangle
-        startX = parseInt(e.clientX - offsetX);
-        startY = parseInt(e.clientY - offsetY);
+        startX = parseInt(clientX - offsetX);
+        startY = parseInt(clientY - offsetY);
 
         // set a flag indicating the drag has begun
         isDown = true;
@@ -208,6 +224,7 @@ function roi_listener(camera_id) {
 
         // the drag is over, clear the dragging flag
         isDown = false;
+        set_roi(camera_id, getTLBRCornersList(startX, startY, mouseX, mouseY));
     }
 
     function handleMouseOut(e) {
@@ -218,7 +235,7 @@ function roi_listener(camera_id) {
         isDown = false;
     }
 
-    function handleMouseMove(e) {
+    function handleMouseMove(e, type = "mouse") {
         e.preventDefault();
         e.stopPropagation();
 
@@ -227,9 +244,18 @@ function roi_listener(camera_id) {
             return;
         }
 
+        if (type == "touch") {
+            var clientX = e.originalEvent.touches[0].clientX;
+            var clientY = e.originalEvent.touches[0].clientY;
+        }
+        else {
+            var clientX = e.clientX;
+            var clientY = e.clientY;
+        }
+
         // get the current mouse position
-        mouseX = parseInt(e.clientX - offsetX);
-        mouseY = parseInt(e.clientY - offsetY);
+        mouseX = parseInt(clientX - offsetX);
+        mouseY = parseInt(clientY - offsetY);
         // console.log(camera_id + " startXY mouseXY: " + startX + " " + startY + " " + mouseX + " " + mouseY);
 
         // Put your mousemove stuff here
@@ -251,16 +277,37 @@ function roi_listener(camera_id) {
     // listen for mouse events
     $(roi_id).mousedown(function (e) {
         handleMouseDown(e);
+        draw_text(camera_id, "mousedown");
     });
     $(roi_id).mousemove(function (e) {
         handleMouseMove(e);
+        draw_text(camera_id, "mousemove");
     });
     $(roi_id).mouseup(function (e) {
         handleMouseUp(e);
-        set_roi(camera_id, getTLBRCornersList(startX, startY, mouseX, mouseY));
+        draw_text(camera_id, "mouseup");
     });
     $(roi_id).mouseout(function (e) {
         handleMouseOut(e);
+        draw_text(camera_id, "mouseout");
+    });
+
+    // listen for touch events
+    $(roi_id).bind("touchstart", function (e) {
+        handleMouseDown(e, "touch");
+        draw_text(camera_id, "touchstart");
+    });
+    $(roi_id).bind("touchmove", function (e) {
+        handleMouseMove(e, "touch");
+        draw_text(camera_id, "touchmove: " + e.originalEvent.touches[0].clientX + "," + e.originalEvent.touches[0].clientY);
+    });
+    $(roi_id).bind("touchend", function (e) {
+        handleMouseUp(e);
+        draw_text(camera_id, "touchend");
+    });
+    $(roi_id).bind("touchcancel", function (e) {
+        handleMouseOut(e);
+        draw_text(camera_id, "touchcancel");
     });
 
 }
