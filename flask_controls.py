@@ -31,9 +31,9 @@ class AppControls():
         self.cameralist = pickle_util.load("storage-oak/device_id.pb", error_return = ["A", "B", "C"])
         
         # remove after testing is complete
-        if self.cameralist != ["A", "B", "C"]:
-            for sample in ["172.16.15.70", "B", "C", "D", "E"]:
-                self.cameralist.append(sample)
+        #if self.cameralist != ["A", "B", "C"]:
+        #    for sample in ["172.16.15.70", "B", "C", "D", "E"]:
+        #        self.cameralist.append(sample)
 
     def init_station(self):
         """
