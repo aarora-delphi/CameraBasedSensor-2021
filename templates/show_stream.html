@@ -59,6 +59,9 @@
 
 {% block script %}
 <script>
+    // create empty list
+    var refreshIntervalList = [];
+
     $("#camera_container > div").each(function (index) {
         var camera_id = $(this).attr("id");
         console.log(camera_id);
@@ -67,6 +70,10 @@
         shortcut_update_view(camera_id);
         shortcut_update_roi(camera_id);
         roi_listener(camera_id);
+
+        // updates view every 1 second
+        var interval = setInterval(shortcut_update_view, 1000, camera_id);
+        refreshIntervalList.push(interval);
     });
 </script>
 {% endblock %}
