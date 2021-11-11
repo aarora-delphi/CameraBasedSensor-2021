@@ -255,7 +255,7 @@ class Oak():
         
         return frame
         
-    def processFrameROI(self, frame, color = (255,0,0)):
+    def processFrameROI(self, frame, color = (255,0,255)):
         """
             Draws ROI on frame
             frame: to-be debug frame
