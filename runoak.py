@@ -44,7 +44,7 @@ class Oak():
 
         self.detections = []
         self.frame = np.zeros([300,300,3],dtype=np.uint8)
-        self.debugFrame = None
+        self.debugFrame = np.zeros([300,300,3],dtype=np.uint8)
         ### self.video = np.zeros([300,300,3],dtype=np.uint8) # new
 
     def organize_pipeline(self):
@@ -183,7 +183,8 @@ class Oak():
         
         if self.drawroi_running:
             if self.counter % 30 == 0: # perform action every ~1 second
-                cv2.imwrite(f"storage-oak/{self.deviceID}.png", self.frame)
+                #cv2.imwrite(f"storage-oak/{self.deviceID}.png", self.frame) # save frame
+                cv2.imwrite(f"storage-oak/{self.deviceID}.png", self.debugFrame) # save debug frame
                 self.set_roi()
                 self.set_autofocus()
     
@@ -193,9 +194,8 @@ class Oak():
         """
         app_roi = pickle_util.load("storage-oak/canvas_roi.pb", error_return = {})
         if self.deviceID in app_roi:
-            temp_roi = app_roi[self.deviceID][0] # take first entry
-            temp_roi = self.convert_tlbr_to_list(temp_roi)
-            self.ROI = temp_roi
+            self.ROI = self.convert_tlbr_to_list(app_roi[self.deviceID][0])
+  
     
     def detect_intersections(self, show_display = False):
         """
@@ -273,17 +273,17 @@ class Oak():
         """
         nn_fps = self.counter / (time.monotonic() - self.startTime)
         
-        # Neural Network Inference FPS
-        cv2.putText(frame, "FPS: {:.2f}".format(nn_fps),
-                                (2, 20), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color = (0,0,0), thickness = 6) # border text
-        
-        cv2.putText(frame, "FPS: {:.2f}".format(nn_fps), (2, 20), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color = color)
+        # Neural Network Inference FPS + CAR Count
+        text = f"FPS: {nn_fps:.2f}"
+        text_location = (5, 270)
+        cv2.putText(frame, text, text_location, cv2.FONT_HERSHEY_TRIPLEX, 0.5, color = (0,0,0), thickness = 6) # border text
+        cv2.putText(frame, text, text_location, cv2.FONT_HERSHEY_TRIPLEX, 0.5, color = color)
 
         # Number of Vehicles in ROI
-        cv2.putText(frame, "CAR: {}".format(self.car_count), 
-                                (2, 40), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color = (0,0,0), thickness = 6) # border text
-        
-        cv2.putText(frame, "CAR: {}".format(self.car_count), (2, 40), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color = color)
+        text = f"CAR: {self.car_count}"
+        text_location = (5, 290)
+        cv2.putText(frame, text, text_location, cv2.FONT_HERSHEY_TRIPLEX, 0.5, color = (0,0,0), thickness = 6) # border text
+        cv2.putText(frame, text, text_location, cv2.FONT_HERSHEY_TRIPLEX, 0.5, color = color)
 
         return frame
 
