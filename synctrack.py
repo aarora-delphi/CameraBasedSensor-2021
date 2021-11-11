@@ -93,16 +93,14 @@ class TrackSync():
             self.send_response(response='{"serialnumber":"GXXXX301XXXXX"}', encode_type = 'str') 
             # TO DO - extract system serial number instead of hardcoding
 
-            ### add valid message conn
             if self.message_conn == []:
-                self.append_message_conn(self.conn)
+                self.append_message_conn(self.conn) # add valid message conn
 
         elif message == '{"get":"partnumber"}':
             self.send_response(response='{"partnumber":"2500-TIU-2000"}', encode_type = 'str')
 
-            ### add valid message conn
             if self.message_conn == []:
-                self.append_message_conn(self.conn)
+                self.append_message_conn(self.conn) # add valid message conn
 
         elif message == '{"get":"firmwarepartno"}':
             self.send_response(response='{"firmwarepartno":"xxxxxx"}', encode_type = 'str')
@@ -116,16 +114,16 @@ class TrackSync():
         # hourly sync protocol
         elif message == '1001053030303030301003c8':
             self.send_response(response = '1006051003E8') # response 1
+            self.close_message_conn(self.conn) # close invalid conn
 
         elif len(message) == 40 and message[:6] == '100110':
             self.send_response(response = '1006101003DD') # response 2
             self.apply_sync_datetime(message)
+            self.close_message_conn(self.conn)  # close invalid conn
 
         elif message == '1001061003e7':
             self.send_response(response = '1006061003E7') # response 3
-
-            ### invalid message_conn set
-            self.close_message_conn(self.conn)
+            self.close_message_conn(self.conn) # close invalid conn
 
 
     def apply_sync_datetime(self, message2):

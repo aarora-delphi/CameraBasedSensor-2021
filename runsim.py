@@ -109,7 +109,7 @@ class OakSim(Oak):
 		
         # Define a neural network that will make predictions based on the source frames
         nn.setBlobPath(self.nnPath)
-        nn.setConfidenceThreshold(0.7)
+        nn.setConfidenceThreshold(0.8)
         nn.setNumInferenceThreads(2)
         nn.input.setBlocking(False)
 
@@ -276,8 +276,9 @@ def parse_arguments():
     args = parser.parse_args()
     
     if args.video == True:
-       # args.video = './video/video08312021.mp4' 
-       args.video = './video/video10282021.mp4' 
+        # args.video = './video/video08312021.mp4'
+        # args.video = './video/video10282021.mp4'
+        args.video = './video/video10282021-long.mp4'
        
     return args
 
@@ -323,7 +324,7 @@ def getCam(device_id, args, count):
 
 if __name__ == "__main__":
     log.info("Started runsim Process\n\n")
-    time.sleep(5) # allows time for all OAK to be present in autodiscovery
+    time.sleep(8) # allows time for all OAK to be present in autodiscovery
     args = parse_arguments()
     ### dconn = DConnect(connect = args.track)
     

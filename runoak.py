@@ -87,7 +87,7 @@ class Oak():
         cam.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P) # THE_1080_P, THE_4_K, THE_12_MP
         cam.setImageOrientation(dai.CameraImageOrientation.ROTATE_180_DEG)
         nn.setBlobPath(self.nnPath)
-        nn.setConfidenceThreshold(0.7)
+        nn.setConfidenceThreshold(0.8)
         nn.setNumInferenceThreads(2)
         nn.input.setBlocking(False)
 
@@ -390,7 +390,7 @@ def getCam(device_id, args, count):
 
 if __name__ == "__main__":
     log.info("Started runoak Process\n\n")
-    time.sleep(5) # allows time for all OAK to be present in autodiscovery
+    time.sleep(8) # allows time for all OAK to be present in autodiscovery
     args = parse_arguments()
     ### dconn = DConnect(connect = args.track)
     

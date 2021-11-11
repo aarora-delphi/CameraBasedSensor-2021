@@ -73,7 +73,7 @@ class DTrack():
         ###self.heartbeat_timer = time.monotonic()
         
         # JSON Logging related variables
-        self.min_frames = 5
+        self.min_frames = 10
         self.car_counts = deque([-1]*self.min_frames)
         self.in_lane = False
         self.out_lane = True
