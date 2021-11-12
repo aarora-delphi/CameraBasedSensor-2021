@@ -65,10 +65,15 @@ def update_view(camera_id):
 
     # testing redis
     img_bytes_ = r.get(camera_id)
-    decoded = base64.b64encode(img_bytes_).decode("utf-8")
-    return jsonify({'status': True, 'image': decoded})
-  
+    if img_bytes_ is not None:
+        decoded = base64.b64encode(img_bytes_).decode("utf-8")
+        return jsonify({'status': True, 'image': decoded})
 
+    image_path = control.get_view(camera_id)
+    with open(image_path, "rb") as f:
+        image_binary = f.read()
+        image = base64.b64encode(image_binary).decode("utf-8")
+        return jsonify({'status': True, 'image': image})
 
 @app.route('/update_station/<camera_id>', methods=['GET','POST'])
 def update_station(camera_id):
