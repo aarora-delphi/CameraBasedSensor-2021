@@ -52,6 +52,7 @@ class Oak():
 
         # testing redis
         self.r = redis.StrictRedis()
+        self.event = None
 
     def organize_pipeline(self):
         """
@@ -188,16 +189,11 @@ class Oak():
             self.drawroi_running = is_running
         
         if self.drawroi_running:
-            if self.counter % 5 == 0: # perform action every ~1 second
+            if self.counter % 30 == 0: # perform action every ~1 second
                 #cv2.imwrite(f"storage-oak/{self.deviceID}.png", self.frame) # save frame
                 #cv2.imwrite(f"storage-oak/{self.deviceID}.png", self.debugFrame) # save debug frame
                 self.set_roi()
                 self.set_autofocus()
-
-                # testing redis
-                retval, buffer = cv2.imencode('.png', self.debugFrame)
-                img_bytes = np.array(buffer).tobytes()
-                self.r.set(self.deviceID, img_bytes)
     
     def set_roi(self):
         """
@@ -220,6 +216,12 @@ class Oak():
             cv2.imshow(f"{self.station} - {self.deviceID}", self.debugFrame) #cv2.resize(self.debugFrame,None,fx=1.45, fy=1.45))
             #cv2.imshow("rgb - {self.deviceID}", cv2.resize(self.frame,None,fx=1.5, fy=1.5))
             ### cv2.imshow(f"video - {self.deviceID}", cv2.resize(self.video,None,fx=0.4, fy=0.4)) # new
+
+        if self.counter % 5 == 0:
+            # testing redis
+            retval, buffer = cv2.imencode('.png', self.debugFrame)
+            img_bytes = np.array(buffer).tobytes()
+            self.r.set(self.deviceID, img_bytes)
 
         return self.car_count 
         
@@ -296,7 +298,21 @@ class Oak():
         cv2.putText(frame, text, text_location, cv2.FONT_HERSHEY_TRIPLEX, 0.5, color = (0,0,0), thickness = 6) # border text
         cv2.putText(frame, text, text_location, cv2.FONT_HERSHEY_TRIPLEX, 0.5, color = color)
 
+        # Event Message
+        cv2.putText(frame, self.event, (5, 250), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color = (0,0,0), thickness = 6) # border text
+        cv2.putText(frame, self.event, (5, 250), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color = color)
+
         return frame
+
+    def update_event(self, event):
+        """
+            Updates event
+        """
+        event = event.decode("utf-8").replace("\n", "")
+        # station = event[0:3]
+        status = "IN" if event[3:6] == "255" else "OUT"
+        vehicle_id = event[-5:]
+        self.event = f"LAST EVENT: {status} - {vehicle_id}"
 
     # nn data (bounding box locations) are in <0..1> range - they need to be normalized with frame width/height
     def frameNorm(self, frame, bbox):
@@ -425,6 +441,7 @@ if __name__ == "__main__":
                 if args.track:
                     if to_send != None:
                         work_queue.put(to_send) 
+                        camera.update_event(to_send)
                     
                     if not synctck.is_alive():
                         synctck = multiprocessing.Process(target=synctrackmain, args=(work_queue,False), daemon=True)

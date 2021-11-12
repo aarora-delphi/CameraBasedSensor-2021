@@ -350,6 +350,7 @@ if __name__ == "__main__":
                 if args.track:
                     if to_send != None:
                         work_queue.put(to_send) 
+                        camera.update_event(to_send)
                     
                     if not synctck.is_alive():
                         synctck = multiprocessing.Process(target=synctrackmain, args=(work_queue,False), daemon=True)
