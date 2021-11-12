@@ -9,6 +9,10 @@ import numpy as np
 import os
 import base64
 
+# testing redis
+import redis
+r = redis.StrictRedis()
+
 ### local-packages
 import pickle_util
 from logger import *
@@ -53,12 +57,17 @@ def update_view(camera_id):
     Returns the View for a Camera.
     If the View is Unavailable, a Blank Image is Returned
     """
-    image_path = control.get_view(camera_id)
+    #image_path = control.get_view(camera_id)
+    #with open(image_path, "rb") as f:
+    #    image_binary = f.read()
+    #    image = base64.b64encode(image_binary).decode("utf-8")
+    #    return jsonify({'status': True, 'image': image})
 
-    with open(image_path, "rb") as f:
-        image_binary = f.read()
-        image = base64.b64encode(image_binary).decode("utf-8")
-        return jsonify({'status': True, 'image': image})
+    # testing redis
+    img_bytes_ = r.get(camera_id)
+    decoded = base64.b64encode(img_bytes_).decode("utf-8")
+    return jsonify({'status': True, 'image': decoded})
+  
 
 
 @app.route('/update_station/<camera_id>', methods=['GET','POST'])

@@ -11,6 +11,9 @@ import argparse
 import threading
 import multiprocessing
 
+# testing redis
+import redis
+
 ### local-packages
 import pickle_util
 from find_intersect import intersection_of_polygons
@@ -46,6 +49,9 @@ class Oak():
         self.frame = np.zeros([300,300,3],dtype=np.uint8)
         self.debugFrame = np.zeros([300,300,3],dtype=np.uint8)
         ### self.video = np.zeros([300,300,3],dtype=np.uint8) # new
+
+        # testing redis
+        self.r = redis.StrictRedis()
 
     def organize_pipeline(self):
         """
@@ -209,6 +215,11 @@ class Oak():
             cv2.imshow(f"{self.station} - {self.deviceID}", self.debugFrame) #cv2.resize(self.debugFrame,None,fx=1.45, fy=1.45))
             #cv2.imshow("rgb - {self.deviceID}", cv2.resize(self.frame,None,fx=1.5, fy=1.5))
             ### cv2.imshow(f"video - {self.deviceID}", cv2.resize(self.video,None,fx=0.4, fy=0.4)) # new
+
+        # testing redis
+        retval, buffer = cv2.imencode('.png', self.debugFrame)
+        img_bytes = np.array(buffer).tobytes()
+        self.r.set(self.deviceID, img_bytes)
 
         return self.car_count 
         
