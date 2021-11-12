@@ -188,11 +188,16 @@ class Oak():
             self.drawroi_running = is_running
         
         if self.drawroi_running:
-            if self.counter % 30 == 0: # perform action every ~1 second
+            if self.counter % 5 == 0: # perform action every ~1 second
                 #cv2.imwrite(f"storage-oak/{self.deviceID}.png", self.frame) # save frame
                 #cv2.imwrite(f"storage-oak/{self.deviceID}.png", self.debugFrame) # save debug frame
                 self.set_roi()
                 self.set_autofocus()
+
+                # testing redis
+                retval, buffer = cv2.imencode('.png', self.debugFrame)
+                img_bytes = np.array(buffer).tobytes()
+                self.r.set(self.deviceID, img_bytes)
     
     def set_roi(self):
         """
@@ -215,11 +220,6 @@ class Oak():
             cv2.imshow(f"{self.station} - {self.deviceID}", self.debugFrame) #cv2.resize(self.debugFrame,None,fx=1.45, fy=1.45))
             #cv2.imshow("rgb - {self.deviceID}", cv2.resize(self.frame,None,fx=1.5, fy=1.5))
             ### cv2.imshow(f"video - {self.deviceID}", cv2.resize(self.video,None,fx=0.4, fy=0.4)) # new
-
-        # testing redis
-        retval, buffer = cv2.imencode('.png', self.debugFrame)
-        img_bytes = np.array(buffer).tobytes()
-        self.r.set(self.deviceID, img_bytes)
 
         return self.car_count 
         
