@@ -74,6 +74,7 @@ class AppControls():
         return self.focus_choices
     
     def get_camera_choices(self):
+        self.init_camera()
         return self.cameralist
 
     def get_station(self, camera_id):
