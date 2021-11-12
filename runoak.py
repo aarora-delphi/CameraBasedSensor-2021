@@ -190,7 +190,7 @@ class Oak():
         if self.drawroi_running:
             if self.counter % 30 == 0: # perform action every ~1 second
                 #cv2.imwrite(f"storage-oak/{self.deviceID}.png", self.frame) # save frame
-                cv2.imwrite(f"storage-oak/{self.deviceID}.png", self.debugFrame) # save debug frame
+                #cv2.imwrite(f"storage-oak/{self.deviceID}.png", self.debugFrame) # save debug frame
                 self.set_roi()
                 self.set_autofocus()
     
