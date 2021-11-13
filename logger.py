@@ -3,9 +3,11 @@ import logging
 from datetime import date
 import sys
 from pathlib import Path
+import os
 
 logtoconsole = True
-logfile = f'log/{date.today()}.log'
+dir_path = os.path.dirname(os.path.realpath(__file__))
+logfile = f'{dir_path}/log/{date.today()}.log'
 
 # create file if file does not exist
 Path(logfile).touch(exist_ok=True)
