@@ -225,7 +225,11 @@ class MyApp(Tk):
         """
             Loads the image from filename and sets it to be the current view
         """
-        img = Image.open(filename)
+        if os.path.isfile(filename):
+            img = Image.open(filename)
+        else:
+            img = Image.open("storage-oak/blank.png")
+        
         self.currentImage['data'] = img
 
         photo = ImageTk.PhotoImage(img)
