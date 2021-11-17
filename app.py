@@ -2,25 +2,15 @@
 
 ### python-packages
 from flask import Flask, request, render_template, Response, flash, send_file, make_response, jsonify, redirect
-from tkinter import *
-import tkinter.messagebox
-from PIL import Image, ImageTk
-import numpy as np
-import os
 import base64
-
-# testing redis
 import redis
-r = redis.StrictRedis()
 
 ### local-packages
-import pickle_util
-from logger import *
 from flask_controls import AppControls
 
 # Main Flask used for routing.
 app = Flask(__name__)
-
+r = redis.StrictRedis()
 control = AppControls()
 
 @app.route('/')
@@ -30,7 +20,7 @@ def show_stream():
     """
 
     # todo: set to False when done flask app is not running.
-    pickle_util.save("storage-oak/drawroi_running.pb", True) # notifies runoak.py to save frames for flask view
+    control.set_app_active(True)
 
     return render_template('show_stream.html', \
                 cameralist = control.get_camera_choices(), \

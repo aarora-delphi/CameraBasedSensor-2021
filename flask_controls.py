@@ -17,6 +17,12 @@ class AppControls():
         self.init_roi()
         self.black_image = Image.new('RGB', (300, 300), 'black')
 
+    def set_app_active(self, is_active):
+        """
+            Saves the current app active status
+        """
+        pickle_util.save("storage-oak/drawroi_running.pb", is_active)
+
     def init_roi(self):
         """
             Initializes the ROI
