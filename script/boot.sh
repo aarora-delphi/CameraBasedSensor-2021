@@ -23,7 +23,7 @@ xdotool search -name RUNOAK windowminimize
 }
 
 FUNC_FLASKAPP () {
-gnome-terminal --geometry='70x20' --title=FLASKAPP --working-directory=/home/delphidisplay/Desktop/CameraBasedSensor-2021 -- venv/bin/python3 app.py &
+gnome-terminal --geometry='70x20' --title=FLASKAPP --working-directory=/home/delphidisplay/Desktop/CameraBasedSensor-2021 -- venv/bin/python3 app/wsgi.py &
 sleep 2
 xdotool search -name FLASKAPP windowminimize
 }

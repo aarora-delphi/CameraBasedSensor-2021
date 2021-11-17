@@ -5,5 +5,5 @@ BOOT_HANDLER="gnome-terminal --geometry='70x20' --title=BOOT -- bash -c '/home/d
 
 sleep 10
 $($BOOT_HANDLER)
-sleep 1
+sleep 2
 xdotool search -name BOOT windowminimize
