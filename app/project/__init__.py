@@ -4,6 +4,11 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager 
+import logging
+
+# suppress info and debug messages for flask app
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.WARNING)
 
 # init SQLAlchemy so we can use it later in our models
 db = SQLAlchemy()
