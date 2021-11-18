@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Exec=firefox http://172.16.15.60:2000
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=false
+Name[en_US]=FireFox
+Name=FireFox
+Comment[en_US]=Opens Firefox on Camera Flask App
+Comment=Opens Firefox on Camera Flask App

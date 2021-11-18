@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Exec=/home/delphidisplay/Desktop/CameraBasedSensor-2021/script/boot_hook.sh
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+Name[en_US]=Boot Camera + Flask App
+Name=Boot Camera + Flask App
+Comment[en_US]=
+Comment=
