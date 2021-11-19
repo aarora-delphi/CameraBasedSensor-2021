@@ -3,7 +3,10 @@
 ### UBUNTU LIBRARY INSTALLATIONS
 
 sudo apt update
-sudo apt install xdotool
+sudo apt install -y vim
+sudo apt install -y git
+sudo apt install -y curl
+sudo apt install -y xdotool
 sudo apt-get install -y wmctrl
 
 ### UBUNTU FIREWALL CONFIGURATION
@@ -17,14 +20,6 @@ sudo ufw allow 1024:65535/udp
 sudo ufw allow 5938/udp
 sudo ufw allow 5938/tcp
 sudo ufw allow 2000
-
-### UBUNTU STARTUP MANAGER
-
-cd ~/Desktop/CameraBasedSensor-2021/script/fresh_install
-
-# copy files to startup manager if not exists - source -> destination
-cp -R -u -p ./boot_hook.sh.desktop ~/.config/autostart/boot_hook.sh.desktop
-cp -R -u -p ./firefox.desktop ~/.config/autostart/firefox.desktop
 
 ### PYTHON3.9 INSTALLATION
 
@@ -52,11 +47,12 @@ source ~/.bashrc
 
 ### Python Repo Installation
 cd ~/Desktop
-git clone https://github.com/aarora-delphi/CameraBasedSensor-2021
+git clone https://github.com/aarora-delphi/CameraBasedSensor-2021.git
 git clone https://github.com/luxonis/depthai-python.git
 
 ### Python Virtual Environment Setup
 cd ~/Desktop/CameraBasedSensor-2021
+git checkout oak
 python3.9 -m venv venv
 source venv/bin/activate
 pip3 install -r requirements.txt
@@ -69,9 +65,16 @@ cd examples
 python3 install_requirements.py
 deactivate
 
-### Redis Server Installation
+### UBUNTU STARTUP MANAGER
 cd ~/Desktop/CameraBasedSensor-2021/script/fresh_install
-./redis_install.sh
+
+# copy files to startup manager if not exists - source -> destination
+mkdir ~/.config/autostart
+cp ./boot_hook.sh.desktop ~/.config/autostart/boot_hook.sh.desktop
+cp ./firefox.desktop ~/.config/autostart/firefox.desktop
+
+### Redis Server Installation
+sudo apt install -y redis-server
 
 ### GNOME CONFIGURATIONS
 
