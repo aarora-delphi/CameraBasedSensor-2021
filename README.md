@@ -1,6 +1,8 @@
 Glossary of contents
+	
 	- requirements.txt: Contains all OS-packages and python packages needed to install
-	- script/ubuntu_configure.sh: Shell Script to install the packages needed on the Zotac box # TODO: NEED TO ADD
+	
+	- script/ubuntu_configure.sh: Shell Script to install the packages needed on the Zotac box
 
 # CameraBasedSensor-2021
 
@@ -22,7 +24,7 @@ Glossary of contents
 ## How to Set a Static IPv4 on a POE Device:
 1. Run python3 script/bootloader/bootloader_flash.py # updates POE Camera bootloader to latest version 
 2. Run python3 script/bootloader/bootloader_config.py flash # flashes POE Camera with base JSON configuration
-3. Run python3 script/bootloader/setipv4.py # enter ipv4, mask, gateway here to flash onto bootloader
+3. Run python3 script/bootloader/set_ipv4.py # enter ipv4, mask, gateway here to flash onto bootloader
 
 ## How to fix a Softbricked OAK-1 POE Device:
 1. Unplug Ethernet Cable
