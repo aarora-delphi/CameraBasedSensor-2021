@@ -419,7 +419,6 @@ if __name__ == "__main__":
     log.info("Started runoak Process\n\n")
     time.sleep(8) # allows time for all OAK to be present in autodiscovery
     args = parse_arguments()
-    ### dconn = DConnect(connect = args.track)
     
     if args.track:
         work_queue = multiprocessing.Queue()
@@ -454,28 +453,7 @@ if __name__ == "__main__":
         
             except KeyboardInterrupt:
                 log.info(f"Keyboard Interrupt")
-                should_run = False; break 
-        
-            #except BrokenPipeError:
-            #    log.error("Lost Connection to Track")
-            #
-            #    if args.track:
-            #        synctck.terminate()
-            #        time.sleep(0.5)
-            #        synctck.close()
-            #        log.info(f"Terminated synctrack Process")
-            #    
-            #    dconn.close_socket()
-            #    dconn = DConnect(connect = args.track)
-            #
-            #    if args.track:
-            #        synctck = multiprocessing.Process(target=synctrackmain, args=(work_queue,False), daemon=True)
-            #        synctck.start()
-            #        log.info("Restarted synctrack Process")  
-            #    
-            #    time.sleep(0.5)
-            #    for i in range(len(camera_track_list)):
-            #        camera_track_list[i][1].set_connect(dconn.get_conn()) # reset track connection            
+                should_run = False; break            
  
             except RuntimeError:
                 if camera.error_flag == 0:
@@ -491,8 +469,6 @@ if __name__ == "__main__":
             except:
                 log.exception(f"New exception")
                 should_run = False; break
-
-    # dconn.close_socket()
     
     for (camera, track) in camera_track_list:
         camera.release_resources()
