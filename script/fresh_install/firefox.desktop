@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Exec=firefox http://172.16.15.60:2000
+Exec=firefox http://0.0.0.0:2000
 Hidden=false
 NoDisplay=false
 X-GNOME-Autostart-enabled=false

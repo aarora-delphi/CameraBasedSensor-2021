@@ -57,6 +57,7 @@ python3.9 -m venv venv
 source venv/bin/activate
 pip3 install -r requirements.txt
 deactivate
+# sudo cp ~/Desktop/CameraBasedSensor-2021 /opt
 
 cd ~/Desktop/depthai-python
 python3.9 -m venv venv
@@ -64,6 +65,7 @@ source venv/bin/activate
 cd examples
 python3 install_requirements.py
 deactivate
+# sudo cp ~/Desktop/depthai-python /opt
 
 ### UBUNTU STARTUP MANAGER
 cd ~/Desktop/CameraBasedSensor-2021/script/fresh_install
@@ -100,3 +102,9 @@ sudo systemctl disable bluetooth.service
 
 # disable apport error reporting
 sudo systemctl disable apport
+
+# disable dim screen when inactive in power settings
+gsettings set org.gnome.settings-daemon.plugins.power idle-dim false
+
+# disable blank screen in power settings
+gsettings set org.gnome.desktop.session idle-delay 0
