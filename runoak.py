@@ -110,9 +110,9 @@ class Oak():
         self.qRgb = self.device.getOutputQueue(name="rgb", maxSize=4, blocking=False)
         self.qDet = self.device.getOutputQueue(name="nn", maxSize=4, blocking=False)
     
+        self.set_autofocus()
         self.startTime = time.monotonic()
         self.counter = 0
-        self.set_autofocus()
     
     def set_autofocus(self):
         """
