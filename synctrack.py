@@ -2,8 +2,6 @@
 
 ### python-packages
 import time
-import socket 
-import json
 import re
 import subprocess
 import select
@@ -13,10 +11,9 @@ import signal
 from collections import deque
 
 ### local-packages
-from timeout import timeout, TimeoutError
-from logger import *
 from runtrack import DConnect
 import pickle_util
+from logger import *
 
 should_run = True # global variable
 

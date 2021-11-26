@@ -1,10 +1,7 @@
 ### python-packages
 import time
-import socket 
-import json
+import socket
 from collections import deque
-import pickle
-from datetime import datetime, timezone
 import subprocess
 
 ### local-packages
@@ -64,13 +61,12 @@ class DConnect():
 
 class DTrack():
 
-    def __init__(self, name = '001', connect = False): # connect = (None, None, None)):
+    def __init__(self, name = '001', connect = False):
         self.name = name
         self.set_connect(connect)
         
         self.offset = int(subprocess.check_output("./script/get_timezone.sh").strip()) # gets tz diff in seconds from utc
         self.buffer_file = f"storage-oak/buffer_position.pb"
-        ###self.heartbeat_timer = time.monotonic()
         
         # JSON Logging related variables
         self.min_frames = 10
@@ -143,7 +139,6 @@ class DTrack():
             print(json_message)
             return
 
-
         self.car_counts.append(numCars)
         self.car_counts.popleft()
 
@@ -157,21 +152,15 @@ class DTrack():
             self.in_lane = True
             self.out_lane = False
 
-
         if json_message["status"] != "000":
             if self.connect:
                 json_message["vehicle_id"] = self.get_buffer_position()
-                ###self.heartbeat_timer = time.monotonic() # reset timer
             
             print(json_message)
             
             if self.connect:
                 to_send = self.__create_track_string(json_message)
                 return to_send
-        
-        ###else:
-        ###    if self.connect:
-        ###        return self.heartbeat()
 
     def timestamp(self):
         """
@@ -179,15 +168,4 @@ class DTrack():
         """
         ts = int(time.time()) + self.offset
         return ts
-
-    ###def heartbeat(self, second_interval = 300):
-    ###    """
-    ###        Sends heartbeat every 5 minutes of inactivity
-    ###    """
-    ###    current_time = time.monotonic()
-    ###    if current_time - self.heartbeat_timer > second_interval:
-    ###        self.heartbeat_timer = current_time
-    ###        to_send = bytes(f'000000{self.timestamp()}00000'+'\n', 'utf-8')
-    ###        print(f"Heartbeat: {to_send}")
-    ###        return to_send
 
