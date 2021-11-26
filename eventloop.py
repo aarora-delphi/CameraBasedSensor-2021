@@ -9,14 +9,13 @@ import argparse
 import multiprocessing
 import time
 
-
 ### local-packages
 import pickle_util
 from runtrack import DTrack
-from logger import *
 from synctrack import synctrackmain
 from runoak import Oak
 from runsim import OakSim
+from logger import *
 
 class OakLoop():
     def __init__(self):
