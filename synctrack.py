@@ -30,6 +30,7 @@ class TrackSync():
         self.buffer_file = f"storage-oak/event_buffer.pb"
         self.event_buffer = pickle_util.load(self.buffer_file, error_return = deque(maxlen=5000)) # store last 5K events (max 65535)
     
+        self.error_count = 0
 
     def set_connect(self, connect):
         self.connect = connect != (None, None, None)
@@ -397,11 +398,15 @@ def synctrackmain(work_queue, boot = True):
                 if len(read_list) > 1:
                     strack.append_message_conn(read_list[1]) # fill message_conn with next connnection
                 time.sleep(1)
-                ### log.warning("NO MESSAGE CONN - Restarting All Connections")
-                ### strack.save_event_buffer()
-                ### restart_connect(dconn, strack, read_list)
-                ### read_list = [dconn.s, dconn.conn]     
-        
+
+                strack.error_count += 1
+                if strack.error_count > 30:
+                    strack.error_count = 0
+                    log.warning("NO MESSAGE CONN - Restarting All Connections")
+                    strack.save_event_buffer()
+                    restart_connect(dconn, strack, read_list)
+                    read_list = [dconn.s, dconn.conn]
+
         except queue.Empty: 
             pass
             
