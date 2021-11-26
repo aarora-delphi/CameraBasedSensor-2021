@@ -9,6 +9,12 @@ sudo apt install -y curl
 sudo apt install -y xdotool
 sudo apt-get install -y wmctrl
 
+# ssh on port 22
+sudo apt-get install openssh-server
+
+# test - remove kernel error with python 3.6
+sudo apt-get --only-upgrade install unattended-upgrades
+
 ### UBUNTU FIREWALL CONFIGURATION
 
 sudo ufw enable
