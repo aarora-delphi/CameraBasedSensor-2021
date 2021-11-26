@@ -331,113 +331,197 @@ class Oak():
         log.info(f"Closing Device {self.deviceID}")
         self.device.close() # close device
 
-def getOakDeviceIds():
-    """
-        Checks for available OAK Devices
-    """
-    deviceIds = lambda : [device_info.getMxId() for device_info in dai.Device.getAllAvailableDevices()]
-    oak_device_ids = deviceIds()
-    while '<error>' in oak_device_ids:
-        log.error('Unable to Retrieve OAK Device - Trying Again')
-        oak_device_ids = deviceIds()
-    return oak_device_ids
 
-def parse_arguments():
-    """
-        Parses Command Line Arguments
-    """
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-track', '--track', action="store_true", help="Send messages to track system")
-    args = parser.parse_args() 
-    return args
+class OakLoop():
+    def __init__(self):
+        self.camera_track_list = []
+        self.should_run = True
+        self.start_time = time.time()
+        
+        self.set_custom_parameters()
+        self.parse_arguments()
+        self.setup_synctrack()
+        self.setup_cameralist()
+        self.set_active_devices()
 
-def create_camera_track_list(camera_track_list, args, ignore_station = ['255'], order_station = False):
-    """
-        Initializes list of Oak and DTrack Objects for each OAK Device
-    """
-    oak_device_ids = getOakDeviceIds()
-    log.info(f"Found {len(oak_device_ids)} OAK DEVICES - {oak_device_ids}")
-    pickle_util.save("storage-oak/device_id.pb", oak_device_ids)
-    assert len(oak_device_ids) != 0
+    def set_custom_parameters(self):
+        """
+            Set parameters unique to OakLoop
+        """
+        self.ignore_station = ['255']
 
-    def order_oak_by_station(elem):
-        station = pickle_util.load(f"storage-oak/station_{elem}.pb", error_return = '255')
-        return int(station) if station != '000' else 255
+    def parse_arguments(self):
+        """
+            Parses Command Line Arguments
+        """
+        parser = argparse.ArgumentParser()
+        parser.add_argument('-track', '--track', action="store_true", help="Send messages to track system")
+        self.args = parser.parse_args()
+        log.info(f"Started runoak Process with {self.args}\n\n")
 
-    if order_station:
-        oak_device_ids.sort(key=order_oak_by_station)    
+    def getCam(self, device_id, count):
+        """
+            Returns the Oak Object
+        """
+        return Oak(deviceID = device_id) 
 
-    for count, device_id in enumerate(oak_device_ids):
+    def setup_synctrack(self):
+        """
+            Sets up synctrack if specified by self.args
+        """
+        if self.args.track:
+            self.work_queue = multiprocessing.Queue()
+            self.synctck = multiprocessing.Process(target=synctrackmain, args=(self.work_queue,True), daemon=True)
+            self.synctck.start()
+            log.info("Started synctrack Process")
+
+    def setup_cameralist(self):
+        """
+            Sets up cameralist 
+        """
+        found_devices = self.find_oak_devices()
+        log.info(f"Found {len(found_devices)} OAK DEVICES - {found_devices}")
+        pickle_util.save("storage-oak/device_id.pb", found_devices)
+
+        def order_oak_by_station(elem):
+            station = pickle_util.load(f"storage-oak/station_{elem}.pb", error_return = '255')
+            return int(station) if station != '000' else 255
+
+        found_devices.sort(key=order_oak_by_station) 
+
+        for device_id in found_devices:
+            self.add_camera(device_id)
+
+    def find_oak_devices(self):
+        """
+            Checks for available OAK Devices
+        """
+        found_devices = [device_info.getMxId() for device_info in dai.Device.getAllAvailableDevices() if device_info.getMxId() != '<error>']
+        return found_devices
+
+    def set_active_devices(self):
+        """
+            Sets a list of active devices
+        """
+        self.active_devices = [camera.deviceID for (camera, track) in self.camera_track_list]
+        pickle_util.save("storage-oak/device_id.pb", self.active_devices)
+
+    def add_camera(self, device_id):
+        """
+            Adds [camera, track] to self.camera_track_list
+        """
         station = pickle_util.load(f"storage-oak/station_{device_id}.pb", error_return = '255')
         log.info(f"OAK DEVICE: {device_id} - STATION: {station}")
-        if station in ignore_station:
+        
+        if station in self.ignore_station:
             log.error(f"Invalid Station {station} - Abort {device_id} Initialization")
-            continue
+            return
 
-        cam = getCam(device_id, args, count); cam.organize_pipeline()
-        tck = DTrack(name = station, connect = args.track)
-        camera_track_list.append([cam, tck])
+        cam = self.getCam(device_id = device_id, count = len(self.camera_track_list)); cam.organize_pipeline()
+        tck = DTrack(name = station, connect = self.args.track)
+        self.camera_track_list.append([cam, tck])
 
-def getCam(device_id, args, count):
-    """
-        Returns the Oak Object
-    """
-    return Oak(deviceID = device_id)    
+    def remove_camera(self, device_id):
+        """
+            Remove Camera from self.camera_track_list
+        """
+        if device_id in self.active_devices:
+            device_index = self.active_devices.index(device_id)
+            camera, track = self.camera_track_list.pop(device_index)
+            camera.release_resources()
+            self.set_active_devices()
+
+    def run_event_loop(self):
+        """
+            Event Loop
+        """
+        while self.should_run:
+            for (camera, track) in self.camera_track_list:
+                try:
+                    self.oak_event(camera, track)
+                    if self.check_quit():
+                        self.should_run = False; break
+                except RuntimeError:
+                    self.except_runtime_error(camera)
+                except EOFError:
+                    if self.except_eof_error(camera):
+                        self.should_run = False; break
+                except KeyboardInterrupt:
+                    log.info(f"Keyboard Interrupt")
+                    self.should_run = False; break
+                except Exception:
+                    log.exception(f"New exception")
+                    self.should_run = False; break
+            
+            if time.time() - self.start_time > 30: # repeat every 30 seconds
+                self.start_time = time.time()
+                self.check_synctrack()
+                self.check_new_devices() # presents slight delay
+
+        for (camera, track) in self.camera_track_list:
+            camera.release_resources()
+
+    def oak_event(self, camera, track):
+        """
+            Events to run for an OAK Device
+        """
+        
+        camera.inference()
+        numCars = camera.detect_intersections(show_display = True)
+        to_send = track.log_car_detection(numCars)
+        
+        if self.args.track:
+            if to_send != None:
+                self.work_queue.put(to_send) 
+                camera.update_event(to_send)
+
+    def check_quit(self):
+        """
+            Checks if 'q' key was clicked on opencv window
+        """
+        return cv2.waitKey(1) == ord('q')
+
+    def check_synctrack(self):
+        """
+            Restarts synctrack process if not alive
+        """
+        if self.args.track and not self.synctck.is_alive():
+            self.synctck = multiprocessing.Process(target=synctrackmain, args=(self.work_queue,False), daemon=True)
+            self.synctck.start()
+            log.info("Restarted synctrack Process")   
+
+    def check_new_devices(self):
+        """
+            Adds new cameras to self.camera_track_list
+        """
+        for device_id in self.find_oak_devices():
+            if device_id not in self.active_devices:
+                self.add_camera(device_id)
+                self.set_active_devices()
+                log.info(f"Added Device {device_id} - All Active Devices: {self.active_devices}")
+
+    def except_runtime_error(self, camera):
+        """
+            Restarts OAK Device if Runtime Error Occurs
+        """
+        if camera.error_flag == 0:
+            log.exception(f"Runtime Error for {camera.deviceID}")
+            camera.device.close() # close device
+            camera.error_flag = 1
+        if camera.device.isClosed() and camera.deviceID in self.find_oak_devices(): # TO DO - make non-blocking
+            log.info(f"Found {camera.deviceID} - Reconnecting to OAK Pipeline")
+            camera.device = dai.Device(camera.pipeline, camera.device_info)
+            camera.start_pipeline()
+            camera.error_flag = 0
+
+    def except_eof_error(self, camera):
+        """
+            Only used by OakSim - placeholder
+        """
+        return False
+
 
 if __name__ == "__main__":
-    log.info("Started runoak Process\n\n")
-    time.sleep(8) # allows time for all OAK to be present in autodiscovery
-    args = parse_arguments()
     
-    if args.track:
-        work_queue = multiprocessing.Queue()
-        synctck = multiprocessing.Process(target=synctrackmain, args=(work_queue,True), daemon=True)
-        synctck.start()
-        log.info("Started synctrack Process")
-    
-    camera_track_list = []
-    create_camera_track_list(camera_track_list, args, ignore_station = ['255'], order_station = False)
-    should_run = True
-    
-    while should_run:
-        for (camera, track) in camera_track_list:
-            try:
-                camera.inference()
-                numCars = camera.detect_intersections(show_display = True)
-                to_send = track.log_car_detection(numCars)
-                
-                if args.track:
-                    if to_send != None:
-                        work_queue.put(to_send) 
-                        camera.update_event(to_send)
-                    
-                    if not synctck.is_alive():
-                        synctck = multiprocessing.Process(target=synctrackmain, args=(work_queue,False), daemon=True)
-                        synctck.start()
-                        log.info("Restarted synctrack Process")
-                        
-        
-                if cv2.waitKey(1) == ord('q'):
-                    should_run = False; break 
-        
-            except KeyboardInterrupt:
-                log.info(f"Keyboard Interrupt")
-                should_run = False; break            
- 
-            except RuntimeError:
-                if camera.error_flag == 0:
-                    log.exception(f"Runtime Error for {camera.deviceID}")
-                    camera.device.close() # close device
-                    camera.error_flag = 1
-                if camera.device.isClosed() and camera.deviceID in getOakDeviceIds(): # TO DO - make non-blocking
-                    log.info(f"Found {camera.deviceID} - Reconnecting to OAK Pipeline")
-                    camera.device = dai.Device(camera.pipeline, camera.device_info)
-                    camera.start_pipeline()
-                    camera.error_flag = 0
-        
-            except:
-                log.exception(f"New exception")
-                should_run = False; break
-    
-    for (camera, track) in camera_track_list:
-        camera.release_resources()
+    app = OakLoop()
+    app.run_event_loop()

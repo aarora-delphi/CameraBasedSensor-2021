@@ -254,136 +254,78 @@ class OakSim(Oak):
         log.info(f"Closing Device {self.deviceID}")
         self.device.close() # close device
 
-def parse_arguments():
-    """
-        Parses Command Line Arguments
-    """
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-track', '--track', action="store_true", help="Send messages to track system")
-    parser.add_argument('-record', '--record', choices=['360p', '720p', '1080p'], default = None, help="Save Recording of connected OAK")
-    parser.add_argument('-video', '--video', action="store_true", default = None, help="Run Video as Input")
-    parser.add_argument('-speed', '--speed', default = 1, type = int, help="Speed of Video Playback - Default: 1")
-    parser.add_argument('-skip', '--skip', default = 0, type = int, help="Frames to delay video playback - Compounded with # of OAK")
-    parser.add_argument('-loop', '--loop', action="store_true", default = False, help="Loop Video Playback a Million Times")
-    parser.add_argument('-full', '--full', action="store_true", default = False, help="Use letterboxing for 16:9 aspect ratio frame")
-    parser.add_argument('-sync', '--sync', action="store_true", default = False, help="Sync RGB output with NN output")
-    args = parser.parse_args()
-    
-    if args.video == True:
-        # args.video = './video/video08312021.mp4'
-        # args.video = './video/video10282021.mp4'
-        args.video = './video/video10282021-long.mp4'
-       
-    return args
 
-def create_camera_track_list(camera_track_list, args, ignore_station = ['255'], order_station = False):
-    """
-        Initializes list of Oak and DTrack Objects for each OAK Device
-    """
-    oak_device_ids = getOakDeviceIds()
-    log.info(f"Found {len(oak_device_ids)} OAK DEVICES - {oak_device_ids}")
-    pickle_util.save("storage-oak/device_id.pb", oak_device_ids)
-    assert len(oak_device_ids) != 0
+class OakSimLoop(OakLoop):
 
-    def order_oak_by_station(elem):
-        station = pickle_util.load(f"storage-oak/station_{elem}.pb", error_return = '255')
-        return int(station) if station != '000' else 255
+    def set_custom_parameters(self):
+        """
+            Set parameters unique to OakSimLoop
+        """
+        self.ignore_station = ['000', '255']
+        self.video_complete = []
 
-    if order_station:
-        oak_device_ids.sort(key=order_oak_by_station)    
+    def parse_arguments(self):
+        """
+            Parses Command Line Arguments
+        """
+        parser = argparse.ArgumentParser()
+        parser.add_argument('-track', '--track', action="store_true", help="Send messages to track system")
+        parser.add_argument('-record', '--record', choices=['360p', '720p', '1080p'], default = None, help="Save Recording of connected OAK")
+        parser.add_argument('-video', '--video', action="store_true", default = None, help="Run Video as Input")
+        parser.add_argument('-speed', '--speed', default = 1, type = int, help="Speed of Video Playback - Default: 1")
+        parser.add_argument('-skip', '--skip', default = 0, type = int, help="Frames to delay video playback - Compounded with # of OAK")
+        parser.add_argument('-loop', '--loop', action="store_true", default = False, help="Loop Video Playback a Million Times")
+        parser.add_argument('-full', '--full', action="store_true", default = False, help="Use letterboxing for 16:9 aspect ratio frame")
+        parser.add_argument('-sync', '--sync', action="store_true", default = False, help="Sync RGB output with NN output")
+        self.args = parser.parse_args()
+        
+        if self.args.video == True:
+            # self.args.video = './video/video08312021.mp4'
+            # self.args.video = './video/video10282021.mp4'
+            self.args.video = './video/video10282021-long.mp4'
+        
+        log.info(f"Started runsim Process with {self.args}\n\n")
 
-    for count, device_id in enumerate(oak_device_ids):
-        station = pickle_util.load(f"storage-oak/station_{device_id}.pb", error_return = '255')
-        log.info(f"OAK DEVICE: {device_id} - STATION: {station}")
-        if station in ignore_station:
-            log.error(f"Invalid Station {station} - Abort {device_id} Initialization")
-            continue
+    def getCam(self, device_id, count):
+        """
+            Returns the Oak Object
+        """
+        return OakSim(deviceID = device_id, \
+                    save_video = self.args.record, \
+                    play_video = self.args.video, \
+                    speed = self.args.speed, \
+                    skip = self.args.skip*count, \
+                    loop = 1000000 if self.args.loop else 0, \
+                    full = self.args.full, \
+                    sync = self.args.sync) 
 
-        cam = getCam(device_id, args, count); cam.organize_pipeline()
-        tck = DTrack(name = station, connect = args.track)
-        camera_track_list.append([cam, tck])
+    def check_quit(self):
+        """
+            Checks if 'q' key was clicked on opencv window
+        """
+        if cv2.waitKey(1) == ord('q'):
+            if self.args.video and self.args.loop:
+                loop_count = self.camera_track_list[0][0].get_loop_count()
+                for (camera, track) in self.camera_track_list:
+                    camera.disable_video_loop(loop_count)
+            else:
+                return True
+        
+        return False
 
-def getCam(device_id, args, count):
-    """
-        Returns the Oak Object
-    """
-    return OakSim(deviceID = device_id, \
-                save_video = args.record, \
-                play_video = args.video, \
-                speed = args.speed, \
-                skip = args.skip*count, \
-                loop = 1000000 if args.loop else 0, \
-                full = args.full, \
-                sync = args.sync) 
+    def except_eof_error(self, camera):
+        """
+            Only used by OakSim - breaks out of event_loop when all videos are complete
+        """
+        if camera.deviceID not in self.video_complete:
+            log.info(f"End of Video for {camera.deviceID}")
+            self.video_complete.append(camera.deviceID)
+            if len(self.video_complete) == len(self.camera_track_list):
+                return True
+        return False
+
 
 if __name__ == "__main__":
-    log.info("Started runsim Process\n\n")
-    time.sleep(8) # allows time for all OAK to be present in autodiscovery
-    args = parse_arguments()
-    
-    if args.track:
-        work_queue = multiprocessing.Queue()
-        synctck = multiprocessing.Process(target=synctrackmain, args=(work_queue,True), daemon=True)
-        synctck.start()
-        log.info("Started synctrack Process")
-    
-    camera_track_list = []
-    create_camera_track_list(camera_track_list, args, ignore_station = ['255', '000'], order_station = True)
-    should_run = True
-    
-    videoComplete = [] # store finished OAK videos
-    
-    while should_run:
-        for (camera, track) in camera_track_list:
-            try:
-                camera.inference()
-                numCars = camera.detect_intersections(show_display = True)
-                to_send = track.log_car_detection(numCars)
-  
-                if args.track:
-                    if to_send != None:
-                        work_queue.put(to_send) 
-                        camera.update_event(to_send)
-                    
-                    if not synctck.is_alive():
-                        synctck = multiprocessing.Process(target=synctrackmain, args=(work_queue,False), daemon=True)
-                        synctck.start()
-                        log.info("Restarted synctrack Process")
-                
-                if cv2.waitKey(1) == ord('q'):
-                    if args.video and args.loop:
-                        loop_count = camera_track_list[0][0].get_loop_count()
-                        for (camera, track) in camera_track_list:
-                            camera.disable_video_loop(loop_count)
-                    else:
-                        should_run = False; break  
 
-            except EOFError:
-                if camera.deviceID not in videoComplete:
-                    log.info(f"End of Video for {camera.deviceID}")
-                    videoComplete.append(camera.deviceID)
-                    if len(videoComplete) == len(camera_track_list):
-                        should_run = False; break 
-        
-            # these 4 exceptions same as runoak.py
-            except KeyboardInterrupt:
-                log.info(f"Keyboard Interrupt")
-                should_run = False; break
- 
-            except RuntimeError:
-                if camera.error_flag == 0:
-                    log.exception(f"Runtime Error for {camera.deviceID}")
-                    camera.device.close() # close device
-                    camera.error_flag = 1
-                if camera.device.isClosed() and camera.deviceID in getOakDeviceIds(): # TO DO - make non-blocking
-                    log.info(f"Found {camera.deviceID} - Reconnecting to OAK Pipeline")
-                    camera.device = dai.Device(camera.pipeline, camera.device_info)
-                    camera.start_pipeline()
-                    camera.error_flag = 0
-        
-            except:
-                log.exception(f"New Exception")
-                should_run = False; break          
-    
-    for (camera, track) in camera_track_list:
-        camera.release_resources()
+    app = OakSimLoop()
+    app.run_event_loop()
