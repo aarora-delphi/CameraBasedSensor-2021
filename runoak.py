@@ -198,11 +198,8 @@ class Oak():
         
         if show_display:
             cv2.imshow(f"{self.station} - {self.deviceID}", self.debugFrame) #cv2.resize(self.debugFrame,None,fx=1.45, fy=1.45))
-            #cv2.imshow("rgb - {self.deviceID}", cv2.resize(self.frame,None,fx=1.5, fy=1.5))
-            ### cv2.imshow(f"video - {self.deviceID}", cv2.resize(self.video,None,fx=0.4, fy=0.4)) # new
 
         if self.counter % 5 == 0:
-            # testing redis
             retval, buffer = cv2.imencode('.png', self.debugFrame)
             img_bytes = np.array(buffer).tobytes()
             self.r.set(self.deviceID, img_bytes)
@@ -237,8 +234,7 @@ class Oak():
             if self.labelMap[detection.label] in ["car", "motorbike"]:
                 bbox = self.frameNorm(frame, (detection.xmin, detection.ymin, detection.xmax, detection.ymax))        
                 
-                in_roi = self.bbox_in_roi(bbox)
-                if in_roi:
+                if self.bbox_in_roi(bbox):
                     bbox_color = (0,255,0) # green bbox on debug frame
                     car_count += 1
                 
@@ -293,7 +289,6 @@ class Oak():
             Updates event
         """
         event = event.decode("utf-8").replace("\n", "")
-        # station = event[0:3]
         status = "IN" if event[3:6] == "255" else "OUT"
         vehicle_id = event[-5:]
         self.event = f"LAST EVENT: {status} - {vehicle_id}"
@@ -316,13 +311,7 @@ class Oak():
             box: (xmin,ymin,xmax,ymax) - top left bottom right bbox/roi format
             return: rearranged list of points
         """
-        point_list =  [ [box[0], box[1]], 
-                        [box[2], box[1]],
-                        [box[2], box[3]],
-                        [box[0], box[3]] 
-                      ]
-        
-        return point_list
+        return [[box[0], box[1]], [box[2], box[1]], [box[2], box[3]], [box[0], box[3]]]
         
     def bbox_in_roi(self, bbox):
         """
@@ -330,14 +319,10 @@ class Oak():
             bbox: list - [pt1, pt2, pt3, pt4] where pt# = [x,y]
             return: bool - true if ROI and bbox intersect
         """
-        
-        pt_mod_bbox = self.convert_tlbr_to_list(bbox)
         try:
-            in_roi = intersection_of_polygons(self.ROI, pt_mod_bbox)   
+            return intersection_of_polygons(self.ROI, self.convert_tlbr_to_list(bbox))   
         except:
-            in_roi = False
-            
-        return in_roi
+            return False
 
     def release_resources(self):
         """
