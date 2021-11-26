@@ -157,7 +157,7 @@ class OakSim(Oak):
         self.startTime = time.monotonic()
         self.counter = 0
              
-    def inference(self, show_display = False):
+    def inference(self):
         """
             Request request frames and detections
             Check if drawroi.py is in use
@@ -172,9 +172,8 @@ class OakSim(Oak):
                 
             if read_correctly:
                 self.video = video_frame
-                video_height, video_width, _ = video_frame.shape
                 img = dai.ImgFrame()
-                img.setData(self.to_planar(video_frame, (300, 300))) # tried (video_height, video_width) 
+                img.setData(self.to_planar(video_frame, (300, 300)))
                 img.setTimestamp(time.monotonic())
                 
                 if self.full:
