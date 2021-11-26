@@ -6,21 +6,16 @@ import cv2
 import depthai as dai
 import numpy as np
 import time
-from datetime import datetime
 import argparse
-import threading
 import multiprocessing
-
-# testing redis
 import redis
 
 ### local-packages
 import pickle_util
 from find_intersect import intersection_of_polygons
-from runtrack import DTrack, DConnect
+from runtrack import DTrack
+from synctrack import synctrackmain
 from logger import *
-from synctrack import TrackSync, synctrackmain
-
 
 class Oak():
 

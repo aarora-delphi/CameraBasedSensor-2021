@@ -8,15 +8,10 @@ import numpy as np
 import time
 from datetime import datetime
 import argparse
-import multiprocessing
 
 ### local-packages
-import pickle_util
-from find_intersect import intersection_of_polygons
-from runtrack import DTrack, DConnect
-from runoak import Oak, getOakDeviceIds
+from runoak import Oak, OakLoop
 from logger import *
-from synctrack import TrackSync, synctrackmain
 
 class OakSim(Oak):
 
