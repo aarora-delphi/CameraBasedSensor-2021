@@ -43,9 +43,7 @@ class Oak():
         self.detections = []
         self.frame = np.zeros([300,300,3],dtype=np.uint8)
         self.debugFrame = np.zeros([300,300,3],dtype=np.uint8)
-        ### self.video = np.zeros([300,300,3],dtype=np.uint8) # new
-
-        # testing redis
+        
         self.r = redis.StrictRedis()
         self.event = None
 
@@ -74,13 +72,11 @@ class Oak():
         configIn = pipeline.createXLinkIn()
         xoutFrame = pipeline.createXLinkOut()
         xoutNN = pipeline.createXLinkOut()
-        ### xoutVideo = pipeline.createXLinkOut() # new
 
         controlIn.setStreamName('control')
         configIn.setStreamName('config')
         xoutFrame.setStreamName("rgb")
         xoutNN.setStreamName("nn")
-        ### xoutVideo.setStreamName("video") # new
 
         # Properties
         cam.setPreviewKeepAspectRatio(True)
@@ -99,7 +95,6 @@ class Oak():
         cam.preview.link(xoutFrame.input)
         cam.preview.link(nn.input)
         nn.out.link(xoutNN.input)
-        ### cam.video.link(xoutVideo.input) # new
         
         return pipeline
 
@@ -114,7 +109,6 @@ class Oak():
         self.configQueue = self.device.getInputQueue('config')
         self.qRgb = self.device.getOutputQueue(name="rgb", maxSize=4, blocking=False)
         self.qDet = self.device.getOutputQueue(name="nn", maxSize=4, blocking=False)
-        self.qVideo = None ### self.device.getOutputQueue(name="video", maxSize=4, blocking=False) # new
     
         self.startTime = time.monotonic()
         self.counter = 0
@@ -148,14 +142,13 @@ class Oak():
             self.controlQueue.send(ctrl)
             
           
-    def inference(self, show_display = False):
+    def inference(self):
         """
             Request request frames and detections
             Check if drawroi.py is in use
         """
         inRgb = self.qRgb.tryGet()
         inDet = self.qDet.tryGet()
-        ### inVideo = self.qVideo.tryGet() # new
         
         if inRgb is not None:
             self.frame = inRgb.getCvFrame()
@@ -163,9 +156,6 @@ class Oak():
         if inDet is not None:
             self.detections = inDet.detections
             self.counter += 1
-
-        ### if inVideo is not None: # new
-        ###     self.video = inVideo.getCvFrame() # new
 
         self.check_drawroi() # stores frame for use in drawroi.py
 
@@ -198,7 +188,6 @@ class Oak():
         if self.deviceID in app_roi:
             self.ROI = self.convert_tlbr_to_list(app_roi[self.deviceID][0])
   
-    
     def detect_intersections(self, show_display = False):
         """
             Creates Debug Frame and returns number of detections in ROI
