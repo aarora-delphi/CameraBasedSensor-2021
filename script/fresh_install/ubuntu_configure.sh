@@ -12,7 +12,7 @@ sudo apt-get install -y wmctrl
 # ssh on port 22
 sudo apt-get install openssh-server
 
-# test - remove kernel error with python 3.6
+# remove kernel error with python 3.6 on Ubuntu 14.04
 sudo apt-get --only-upgrade install unattended-upgrades
 
 ### UBUNTU FIREWALL CONFIGURATION
@@ -81,8 +81,20 @@ mkdir ~/.config/autostart
 cp ./boot_hook.sh.desktop ~/.config/autostart/boot_hook.sh.desktop
 cp ./firefox.desktop ~/.config/autostart/firefox.desktop
 
-### Redis Server Installation
+### REDIS SERVER INSTALLATION
 sudo apt install -y redis-server
+
+### NGINX SERVER INSTALLATION & CONFIGURATION
+sudo apt install -y nginx
+
+cd ~/Desktop/CameraBasedSensor-2021/script/fresh_install
+sudo cp camera.service /etc/systemd/system/
+sudo systemctl start camera
+sudo systemctl enable camera
+
+sudo cp camera /etc/nginx/sites-available/
+sudo ln -s /etc/nginx/sites-available/camera /etc/nginx/sites-enabled
+sudo systemctl restart nginx
 
 ### GNOME CONFIGURATIONS
 
