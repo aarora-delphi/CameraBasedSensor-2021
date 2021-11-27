@@ -1,0 +1,13 @@
+[Unit]
+Description=Gunicorn instance to serve the Camera Dashboard
+After=network.target
+
+[Service]
+User=delphi
+Group=www-data
+WorkingDirectory=/home/delphi/Desktop/CameraBasedSensor-2021/app
+Environment="PATH=/home/delphi/Desktop/CameraBasedSensor-2021/venv/bin"
+ExecStart=/home/delphi/Desktop/CameraBasedSensor-2021/venv/bin/gunicorn --workers 3 --bind unix:camera.sock -m 007 wsgi:app
+
+[Install]
+WantedBy=multi-user.target

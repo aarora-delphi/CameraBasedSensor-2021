@@ -1,0 +1,9 @@
+server {
+    listen 2000;
+    server_name 0.0.0.0;
+
+    location / {
+        include proxy_params;
+        proxy_pass http://unix:/home/delphi/Desktop/CameraBasedSensor-2021/app/camera.sock;
+    }
+}
