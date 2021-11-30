@@ -12,7 +12,7 @@ class DConnect():
     def __init__(self, connect = True):
         self.connect = connect
         self.HOST = "0.0.0.0"
-        self.PORT = 5000
+        self.PORT = pickle_util.getconfig('TrackSection', 'port', 'int', error_return = 5000)
         
         self.s = None
         self.conn = None
@@ -69,7 +69,7 @@ class DTrack():
         self.buffer_file = f"storage-oak/buffer_position.pb"
         
         # JSON Logging related variables
-        self.min_frames = 10
+        self.min_frames = pickle_util.getconfig('CameraSection', 'min_frames_detected', 'int', error_return = 10)
         self.car_counts = deque([-1]*self.min_frames)
         self.in_lane = False
         self.out_lane = True

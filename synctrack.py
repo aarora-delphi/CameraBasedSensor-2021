@@ -29,6 +29,12 @@ class TrackSync():
         self.offset = int(subprocess.check_output("./script/get_timezone.sh").strip()) # gets tz diff in seconds from utc
         self.buffer_file = f"storage-oak/event_buffer.pb"
         self.event_buffer = pickle_util.load(self.buffer_file, error_return = deque(maxlen=5000)) # store last 5K events (max 65535)
+        
+        # config parameters
+        self.heartbeat_interval = pickle_util.getconfig('TrackSection', 'heartbeat_interval', 'int', error_return=15)
+        self.serialnumber       = pickle_util.getconfig('TrackSection', 'serialnumber', 'str', error_return='GXXXX301XXXXX')
+        self.partnumber         = pickle_util.getconfig('TrackSection', 'partnumber', 'str', error_return='2500-TIU-2000')
+        self.firmwarepartno     = pickle_util.getconfig('TrackSection', 'firmwarepartno', 'str', error_return='xxxxxx')
     
         self.error_count = 0
 
@@ -53,12 +59,12 @@ class TrackSync():
         return int(time.time()) + self.offset
 
 
-    def heartbeat(self, second_interval = 15): ### testing 15 sec, normally 300 sec
+    def heartbeat(self):
         """
-            Sends heartbeat after 5 minutes of inactivity
+            Sends heartbeat after inactivity time determined by heartbeat_interval
         """
         current_time = time.monotonic()
-        if current_time - self.heartbeat_timer > second_interval:
+        if current_time - self.heartbeat_timer > self.heartbeat_interval:
             self.conn = self.message_conn_head()
             self.send_response(response=f'000000{self.timestamp()}00000', encode_type = 'str')
             self.heartbeat_timer = current_time        
@@ -88,20 +94,19 @@ class TrackSync():
         log.info(f"TRACK MESSAGE RECEIVED: {message} from {self.conn.getpeername()[1]}")
         
         if message == '{"get":"serialnumber"}':
-            self.send_response(response='{"serialnumber":"GXXXX301XXXXX"}', encode_type = 'str') 
-            # TO DO - extract system serial number instead of hardcoding
+            self.send_response(response=f'{{"serialnumber":"{self.serialnumber}"}}', encode_type = 'str')
 
             if self.message_conn == []:
                 self.append_message_conn(self.conn) # add valid message conn
 
         elif message == '{"get":"partnumber"}':
-            self.send_response(response='{"partnumber":"2500-TIU-2000"}', encode_type = 'str')
+            self.send_response(response=f'{{"partnumber":"{self.partnumber}"}}', encode_type = 'str')
 
             if self.message_conn == []:
                 self.append_message_conn(self.conn) # add valid message conn
 
         elif message == '{"get":"firmwarepartno"}':
-            self.send_response(response='{"firmwarepartno":"xxxxxx"}', encode_type = 'str')
+            self.send_response(response=f'{{"firmwarepartno":"{self.firmwarepartno}"}}', encode_type = 'str')
         
         elif 'client' in message:
             self.send_response(response='hello', encode_type = 'str')      
@@ -394,13 +399,13 @@ def synctrackmain(work_queue, boot = True):
                 vehicle_message = work_queue.get(block=False)
                 strack.send_vehicle_message(vehicle_message) 
             else:
-                log.warning(f"NO MESSAGE CONN - Waiting for new Connection")
+                strack.error_count += 1
+                log.warning(f"NO MESSAGE CONN - Waiting for new Connection {strack.error_count}/30")
                 if len(read_list) > 1:
                     strack.append_message_conn(read_list[1]) # fill message_conn with next connnection
                 time.sleep(1)
 
-                strack.error_count += 1
-                if strack.error_count > 30:
+                if strack.error_count >= 30:
                     strack.error_count = 0
                     log.warning("NO MESSAGE CONN - Restarting All Connections")
                     strack.save_event_buffer()

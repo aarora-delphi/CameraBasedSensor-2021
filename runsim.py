@@ -104,7 +104,7 @@ class OakSim(Oak):
 		
         # Define a neural network that will make predictions based on the source frames
         nn.setBlobPath(self.nnPath)
-        nn.setConfidenceThreshold(0.8)
+        nn.setConfidenceThreshold(self.confidence)
         nn.setNumInferenceThreads(2)
         nn.input.setBlocking(False)
 

@@ -33,6 +33,8 @@ class Oak():
         
         model_location = './model/mobilenet-ssd_openvino_2021.2_6shave.blob'
         self.nnPath = str((Path(__file__).parent / Path(model_location)).resolve().absolute())
+        self.confidence = pickle_util.getconfig('CameraSection', 'confidence_threshold', 'float', error_return=0.8)
+        self.roi_overlap = pickle_util.getconfig('CameraSection', 'roi_overlap_threshold', 'float', error_return=0.7)
 
         # MobilenetSSD class labels
         self.labelMap = ["background", "aeroplane", "bicycle", "bird", "boat", \
@@ -85,7 +87,7 @@ class Oak():
         cam.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P) # THE_1080_P, THE_4_K, THE_12_MP
         cam.setImageOrientation(dai.CameraImageOrientation.ROTATE_180_DEG)
         nn.setBlobPath(self.nnPath)
-        nn.setConfidenceThreshold(0.8)
+        nn.setConfidenceThreshold(self.confidence)
         nn.setNumInferenceThreads(2)
         nn.input.setBlocking(False)
 
@@ -320,7 +322,7 @@ class Oak():
             return: bool - true if ROI and bbox intersect
         """
         try:
-            return intersection_of_polygons(self.ROI, self.convert_tlbr_to_list(bbox))   
+            return intersection_of_polygons(self.ROI, self.convert_tlbr_to_list(bbox), thresh=self.roi_overlap)   
         except:
             return False
 

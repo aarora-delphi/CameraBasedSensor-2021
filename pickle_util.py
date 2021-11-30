@@ -1,6 +1,7 @@
 ### python-packages
 import pickle
 import fcntl
+import configparser
 
 ### local-packages
 from logger import *
@@ -32,4 +33,31 @@ def load(file_name, error_return = None):
             return pickle.load(fobj)
     except:
         log.info(f"Failed to Load {file_name}")
+        return error_return
+
+def getconfig(section, key, value, error_return = None):
+    """
+        Gets the value of the key from the config file
+    """
+    config = configparser.ConfigParser(inline_comment_prefixes="#")
+    config.read('storage-oak/properties.ini')
+    
+    try:
+        if value == 'int':
+            result = config.getint(section, key)
+        elif value == 'float':
+            result = config.getfloat(section, key)
+        elif value == 'bool':
+            result = config.getboolean(section, key)
+        elif value == 'str':
+            result = config.get(section, key)
+        else:
+            log.warning(f"INVALID CONFIG TYPE for {section} {key} - Returning default {error_return}")
+            return error_return
+        
+        log.info(f"FOUND CONFIG {section}.{key}.{value} = {result}")
+        return result
+
+    except:
+        log.error(f"FAILED TO GET CONFIG {section}.{key}.{value} - Returning default {error_return}")
         return error_return

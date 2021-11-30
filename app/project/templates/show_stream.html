@@ -68,7 +68,7 @@
         shortcut_update_roi(camera_id);
         roi_listener(camera_id);
 
-        // updates view every 1.5 seconds
+        // updates view every 0.1 seconds
         var interval = setInterval(shortcut_update_view, 100, camera_id);
         refreshIntervalList.push(interval);
     });
