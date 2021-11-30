@@ -22,7 +22,7 @@ Glossary of contents
 4. Note: Changing the station requires a reboot for changes to be administered.
 
 ## How to Set a Static IPv4 on a POE Device:
-1. Run python3 script/bootloader/bootloader_flash.py # updates POE Camera bootloader to latest version 
+1. Run python3 script/bootloader/flash_bootloader.py # updates POE Camera bootloader to latest version 
 2. Run python3 script/bootloader/bootloader_config.py flash # flashes POE Camera with base JSON configuration
 3. Run python3 script/bootloader/set_ipv4.py # enter ipv4, mask, gateway here to flash onto bootloader
 
