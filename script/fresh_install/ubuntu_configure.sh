@@ -13,7 +13,64 @@ sudo apt-get install -y wmctrl
 sudo apt-get install openssh-server
 
 # remove kernel error with python 3.6 on Ubuntu 14.04
-sudo apt-get --only-upgrade install unattended-upgrades
+# sudo apt-get --only-upgrade install unattended-upgrades
+sudo apt-get upgrade -y unattended-upgrades
+sudo apt-get upgrade -y apt
+sudo apt-get upgrade -y apt-utils
+sudo apt-get upgrade -y ca-certificates
+sudo apt-get upgrade -y debconf
+sudo apt-get upgrade -y debconf-i18n
+sudo apt-get upgrade -y distro-info-data
+sudo apt-get upgrade -y dpkg
+sudo apt-get upgrade -y file
+sudo apt-get upgrade -y gpgv
+sudo apt-get upgrade -y libapt-inst2.0
+sudo apt-get upgrade -y libapt-pkg5.0
+sudo apt-get upgrade -y libaudit-common
+sudo apt-get upgrade -y libaudit1
+sudo apt-get upgrade -y libblkid1
+sudo apt-get upgrade -y libdb5.3
+sudo apt-get upgrade -y libgcrypt20
+sudo apt-get upgrade -y libglib2.0-0
+sudo apt-get upgrade -y libglib2.0-data
+sudo apt-get upgrade -y libgnutls30
+sudo apt-get upgrade -y libhogweed4
+sudo apt-get upgrade -y libicu60
+sudo apt-get upgrade -y libidn2-0
+sudo apt-get upgrade -y liblz4-1
+sudo apt-get upgrade -y libmagic-mgc
+sudo apt-get upgrade -y libmagic1
+sudo apt-get upgrade -y libmount1
+sudo apt-get upgrade -y libnettle6
+sudo apt-get upgrade -y libp11-kit0
+sudo apt-get upgrade -y libpam-modules
+sudo apt-get upgrade -y libpam-modules-bin
+sudo apt-get upgrade -y libpam-runtime
+sudo apt-get upgrade -y libpam0g
+sudo apt-get upgrade -y libpython3-stdlib
+sudo apt-get upgrade -y libpython3.6-minimal
+sudo apt-get upgrade -y libpython3.6-stdlib
+sudo apt-get upgrade -y libseccomp2
+sudo apt-get upgrade -y libsmartcols1
+sudo apt-get upgrade -y libsystemd0
+sudo apt-get upgrade -y libudev1
+sudo apt-get upgrade -y libunistring2
+sudo apt-get upgrade -y libuuid1
+sudo apt-get upgrade -y libxml2
+sudo apt-get upgrade -y libzstd1
+sudo apt-get upgrade -y openssl
+sudo apt-get upgrade -y passwd
+sudo apt-get upgrade -y perl-base
+sudo apt-get upgrade -y python-apt-common
+sudo apt-get upgrade -y python3
+sudo apt-get upgrade -y python3-apt
+sudo apt-get upgrade -y python3-gi
+sudo apt-get upgrade -y python3-minimal
+sudo apt-get upgrade -y python3.6
+sudo apt-get upgrade -y python3.6-minimal
+sudo apt-get upgrade -y tar
+sudo apt-get upgrade -y ubuntu-keyring
+sudo apt-get upgrade -y uuid-runtime
 
 ### UBUNTU FIREWALL CONFIGURATION
 
