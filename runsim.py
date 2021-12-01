@@ -270,8 +270,9 @@ class OakSimLoop(OakLoop):
         """
         parser = argparse.ArgumentParser()
         parser.add_argument('-track', '--track', action="store_true", help="Send messages to track system")
-        parser.add_argument('-record', '--record', choices=['360p', '720p', '1080p'], default = None, help="Save Recording of connected OAK")
-        parser.add_argument('-video', '--video', action="store_true", default = None, help="Run Video as Input")
+        parser.add_argument('-record', '--record', choices=['360p', '720p', '1080p'], default = None, help="Save Recording of connected OAK, Choose Resolution")
+        parser.add_argument('-video', '--video', choices=['1', '2', '3', '4', '5', 'd1'], default = None, help="Run Video as Input - Choose Video \
+                            (1: 08312021, 2: 10282021, 3: 10282021-long, 4: 11042021_view1, 5: 11042021_view2, d1: 11042021_view1 + 11042021_view2)")
         parser.add_argument('-speed', '--speed', default = 1, type = int, help="Speed of Video Playback - Default: 1")
         parser.add_argument('-skip', '--skip', default = 0, type = int, help="Frames to delay video playback - Compounded with # of OAK")
         parser.add_argument('-loop', '--loop', action="store_true", default = False, help="Loop Video Playback a Million Times")
@@ -279,10 +280,19 @@ class OakSimLoop(OakLoop):
         parser.add_argument('-sync', '--sync', action="store_true", default = False, help="Sync RGB output with NN output")
         self.args = parser.parse_args()
         
-        if self.args.video == True:
-            # self.args.video = './video/video08312021.mp4'
-            # self.args.video = './video/video10282021.mp4'
-            self.args.video = './video/video10282021-long.mp4'
+        if self.args.video:
+            if self.args.video == '1':
+                self.args.video = ['./video/video08312021.mp4']
+            elif self.args.video == '2':
+                self.args.video = ['./video/video10282021.mp4']
+            elif self.args.video == '3':
+                self.args.video = ['./video/video10282021-long.mp4']
+            elif self.args.video == '4':
+                self.args.video = ['./video/video11042021_view1.mp4']
+            elif self.args.video == '5':
+                self.args.video = ['./video/video11042021_view2.mp4']
+            elif self.args.video == 'd1':
+                self.args.video = ['./video/video11042021_view1.mp4', './video/video11042021_view2.mp4']
         
         log.info(f"Started runsim Process with {self.args}\n\n")
 
@@ -292,7 +302,7 @@ class OakSimLoop(OakLoop):
         """
         return OakSim(deviceID = device_id, \
                     save_video = self.args.record, \
-                    play_video = self.args.video, \
+                    play_video = self.args.video[count % len(self.args.video)] if self.args.video else self.args.video, \
                     speed = self.args.speed, \
                     skip = self.args.skip*count, \
                     loop = 1000000 if self.args.loop else 0, \
