@@ -339,12 +339,12 @@ class OakLoop():
         self.camera_track_list = []
         self.should_run = True
         self.start_time = time.time()
+        self.ignore_devices = []
         
         self.set_custom_parameters()
         self.parse_arguments()
         self.setup_synctrack()
         self.setup_cameralist()
-        self.set_active_devices()
 
     def set_custom_parameters(self):
         """
@@ -413,15 +413,19 @@ class OakLoop():
             Adds [camera, track] to self.camera_track_list
         """
         station = pickle_util.load(f"storage-oak/station_{device_id}.pb", error_return = '255')
-        log.info(f"OAK DEVICE: {device_id} - STATION: {station}")
+        log.info(f"DEVICE: {device_id} - STATION: {station}")
         
         if station in self.ignore_station:
-            log.error(f"Invalid Station {station} - Abort {device_id} Initialization")
+            self.ignore_devices.append(device_id)
+            log.error(f"Invalid Station {station} - Added {device_id} to Ignore List: {self.ignore_devices}")
             return
 
         cam = self.getCam(device_id = device_id, count = len(self.camera_track_list)); cam.organize_pipeline()
         tck = DTrack(name = station, connect = self.args.track)
         self.camera_track_list.append([cam, tck])
+        
+        self.set_active_devices()
+        log.info(f"Added {device_id} to Active List: {self.active_devices}")
 
     def remove_camera(self, device_id):
         """
@@ -497,10 +501,8 @@ class OakLoop():
             Adds new cameras to self.camera_track_list
         """
         for device_id in self.find_oak_devices():
-            if device_id not in self.active_devices:
+            if device_id not in self.active_devices and device_id not in self.ignore_devices:
                 self.add_camera(device_id)
-                self.set_active_devices()
-                log.info(f"Added Device {device_id} - All Active Devices: {self.active_devices}")
 
     def except_runtime_error(self, camera):
         """
